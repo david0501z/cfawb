@@ -3,6 +3,13 @@ plugins {
     kotlin("kapt")
     id("com.android.library")
 }
+ 
+7	
+android {
+    buildFeatures {
+        dataBinding = true
+    }
+}
 
 dependencies {
     implementation(project(":common"))
