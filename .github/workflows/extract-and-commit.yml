@@ -1,0 +1,129 @@
+name: 解压文件并提交
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: read
+
+on:
+  # 手动触发
+  workflow_dispatch:
+    inputs:
+      archive_path:
+        description: '文件压缩包路径（相对于项目根目录）'
+        required: true
+        default: 'archive.zip'
+        type: string
+      extract_path:
+        description: '解压目标路径（相对于项目根目录）'
+        required: true
+        default: '.'
+        type: string
+      commit_message:
+        description: '提交信息'
+        required: true
+        default: 'chore: 更新文件'
+        type: string
+
+  # 也可以通过issue评论触发
+  issue_comment:
+    types: [created]
+
+jobs:
+  extract-and-commit:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # 获取完整历史记录
+
+    - name: 检查文件是否存在
+      run: |
+        if [ -f "${{ github.event.inputs.archive_path || 'archive.zip' }}" ]; then
+          echo "文件存在: ${{ github.event.inputs.archive_path || 'archive.zip' }}"
+          ls -la "${{ github.event.inputs.archive_path || 'uploads/archive.zip' }}"
+        else
+          echo "文件不存在: ${{ github.event.inputs.archive_path || 'archive.zip' }}"
+          echo "列出uploads目录内容:"
+          ls -la uploads/ 2>/dev/null || echo "uploads目录不存在"
+        fi
+
+    - name: 创建解压目录
+      run: |
+        mkdir -p uploads
+        echo "当前目录内容:"
+        ls -la
+
+    - name: 解压文件（如果文件存在）
+      if: ${{ hashFiles(github.event.inputs.archive_path || 'archive.zip') != '' }}
+      run: |
+        ARCHIVE_PATH="${{ github.event.inputs.archive_path || 'archive.zip' }}"
+        EXTRACT_PATH="${{ github.event.inputs.extract_path || '.' }}"
+        
+        if [ -f "$ARCHIVE_PATH" ]; then
+          echo "正在解压 $ARCHIVE_PATH 到 $EXTRACT_PATH"
+          unzip -o "$ARCHIVE_PATH" -d "$EXTRACT_PATH"
+          echo "解压完成，查看解压后的内容:"
+          find "$EXTRACT_PATH" -type f | head -20
+        else
+          echo "文件不存在，跳过解压步骤"
+        fi
+
+    - name: 显示当前文件状态
+      run: |
+        echo "=== 项目根目录内容 ==="
+        ls -la
+        echo ""
+        echo "=== lib目录内容 ==="
+        ls -la lib/ 2>/dev/null || echo "lib目录不存在"
+        echo ""
+        echo "=== android目录内容 ==="
+        ls -la android/ 2>/dev/null || echo "android目录不存在"
+
+    - name: 配置Git
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+
+    - name: 检查是否有更改
+      id: changes
+      run: |
+        git status --porcelain
+        if [ -n "$(git status --porcelain)" ]; then
+          echo "changed=true" >> $GITHUB_OUTPUT
+          echo "检测到文件更改"
+          git status --porcelain
+        else
+          echo "changed=false" >> $GITHUB_OUTPUT
+          echo "没有检测到文件更改"
+        fi
+
+    - name: 添加所有更改到暂存区
+      if: steps.changes.outputs.changed == 'true'
+      run: |
+        git add -A
+        echo "已添加所有更改到暂存区"
+
+    - name: 创建提交
+      if: steps.changes.outputs.changed == 'true'
+      run: |
+        COMMIT_MSG="${{ github.event.inputs.commit_message || 'chore: 更新文件' }}"
+        git commit -m "$COMMIT_MSG"
+        echo "已创建提交: $COMMIT_MSG"
+
+    - name: 推送更改
+      if: steps.changes.outputs.changed == 'true'
+      run: |
+        BRANCH=${GITHUB_REF#refs/heads/}
+        
+        # 使用GITHUB_TOKEN进行推送
+        git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git $BRANCH
+        echo "已推送到分支: $BRANCH"
+
+    - name: 显示最终状态
+      if: steps.changes.outputs.changed == 'true'
+      run: |
+        echo "=== 最终提交历史 ==="
+        git log --oneline -5
