@@ -15,7 +15,7 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
-        with：
+        with:
           token: ${{ secrets.GITHUB_TOKEN }}
       
       - name: Checkout and Update submodules
