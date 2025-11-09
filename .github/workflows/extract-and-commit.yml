@@ -104,6 +104,7 @@ jobs:
       if: steps.changes.outputs.changed == 'true'
       run: |
         git add -A
+        git reset -- .github/workflows/
         echo "已添加所有更改到暂存区"
 
     - name: 创建提交
