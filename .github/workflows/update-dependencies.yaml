@@ -53,23 +53,13 @@ jobs:
           update-go-mod-replace ${{ github.workspace }}/core/src/foss/golang/clash/go.mod $(pwd)/go.mod
           go mod tidy
 
-      - name: Create Pull Request
-        id: cpr
-        uses: peter-evans/create-pull-request@v6
-        with:
-          # 使用默认的 GITHUB_TOKEN，移除复杂的 token 生成
-          commit-message: Update Dependencies
-          delete-branch: true
-          title: 'Update Dependencies'
-          draft: false
-          body: |
-            - Update Clash-Meta Core
-            - Update Go Module Dependencies
-          labels: |
-            Update
-        
-      - name: PR result
-        if: ${{ steps.cpr.outputs.pull-request-number }}
+      - name: Commit and Push Changes
         run: |
-          echo "Pull Request Number - ${{ steps.cpr.outputs.pull-request-number }}"
-          echo "Pull Request URL - ${{ steps.cpr.outputs.pull-request-url }}"
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add .
+          git commit -m "chore: update dependencies
+          
+          - Update Clash-Meta Core
+          - Update Go Module Dependencies"
+          git push origin main
