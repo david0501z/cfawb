@@ -8,9 +8,15 @@ on:
 jobs:
   update-dependencies:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with：
+          token: ${{ secrets.GITHUB_TOKEN }}
       
       - name: Checkout and Update submodules
         run: |
