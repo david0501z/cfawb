@@ -53,17 +53,11 @@ jobs:
           update-go-mod-replace ${{ github.workspace }}/core/src/foss/golang/clash/go.mod $(pwd)/go.mod
           go mod tidy
 
-      - uses: tibdex/github-app-token@v2
-        id: generate-token
-        with:
-          app_id: ${{ secrets.MAINTAINER_APPID }}
-          private_key: ${{ secrets.MAINTAINER_APP_PRIVATE_KEY }}
-
       - name: Create Pull Request
         id: cpr
         uses: peter-evans/create-pull-request@v6
         with:
-          token: ${{ steps.generate-token.outputs.token }}
+          # 使用默认的 GITHUB_TOKEN，移除复杂的 token 生成
           commit-message: Update Dependencies
           branch: update-dependencies
           delete-branch: true
@@ -71,7 +65,7 @@ jobs:
           draft: false
           body: |
             - Update Clash-Meta Core
-            - Update Go Module Dependecies
+            - Update Go Module Dependencies
           labels: |
             Update
         
@@ -80,4 +74,3 @@ jobs:
         run: |
           echo "Pull Request Number - ${{ steps.cpr.outputs.pull-request-number }}"
           echo "Pull Request URL - ${{ steps.cpr.outputs.pull-request-url }}"
-      
