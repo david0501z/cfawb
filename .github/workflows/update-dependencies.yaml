@@ -59,7 +59,6 @@ jobs:
         with:
           # 使用默认的 GITHUB_TOKEN，移除复杂的 token 生成
           commit-message: Update Dependencies
-          branch: update-dependencies
           delete-branch: true
           title: 'Update Dependencies'
           draft: false
