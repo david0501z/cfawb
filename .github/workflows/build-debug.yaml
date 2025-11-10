@@ -41,7 +41,7 @@ jobs:
             ${{ runner.os }}-go-
 
       - name: Update CA
-        if: false
+        #if: false
         run: |
           sudo apt-get update && sudo apt-get install ca-certificates
           sudo update-ca-certificates
