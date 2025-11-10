@@ -16,6 +16,7 @@ import kotlinx.coroutines.isActive
 
 class BrowserActivity : BaseActivity<BrowserDesign>() {
     private lateinit var webView: WebView
+    private var isLoading = false
 
     override suspend fun main() {
         val design = BrowserDesign(this)
@@ -43,7 +44,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
         }
 
         design.reloadButton.setOnClickListener {
-            if (webView.isLoading) {
+            if (isLoading) {
                 webView.stopLoading()
             } else {
                 webView.reload()
@@ -81,12 +82,14 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
         webView.webViewClient = object : WebViewClient() {
             override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                 super.onPageStarted(view, url, favicon)
+                isLoading = true
                 design?.progressBar?.visibility = android.view.View.VISIBLE
                 design?.urlInput?.setText(url)
             }
 
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
+                isLoading = false
                 design?.progressBar?.visibility = android.view.View.GONE
                 design?.urlInput?.setText(url)
             }
@@ -97,6 +100,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 error: WebResourceError?
             ) {
                 super.onReceivedError(view, request, error)
+                isLoading = false
                 design?.progressBar?.visibility = android.view.View.GONE
             }
         }
