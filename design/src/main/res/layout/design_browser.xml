@@ -57,8 +57,8 @@
                     android:inputType="textUri"
                     android:maxLines="1"
                     android:padding="8dp"
-                    android:textColor="@android:color/white"
-                    android:textColorHint="@android:color/white"
+                    android:textColor="@android:color/black"
+                    android:textColorHint="@android:color/black"
                     android:background="@drawable/bg_url_input" />
 
                 <ImageButton
@@ -86,18 +86,36 @@
             </LinearLayout>
 
             <!-- History and Tabs Section -->
-            <HorizontalScrollView
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:orientation="horizontal"
                 android:background="@android:color/white">
 
-                <LinearLayout
-                    android:id="@+id/tabsContainer"
-                    android:layout_width="wrap_content"
+                <HorizontalScrollView
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:padding="4dp" />
-            </HorizontalScrollView>
+                    android:layout_weight="1">
+
+                    <LinearLayout
+                        android:id="@+id/tabsContainer"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:padding="4dp" />
+                </HorizontalScrollView>
+
+                <ImageButton
+                    android:id="@+id/newTabButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:layout_gravity="center_vertical"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/new_tab"
+                    android:padding="8dp"
+                    android:src="@drawable/ic_baseline_add"
+                    android:tint="@android:color/black" />
+            </LinearLayout>
 
         </com.google.android.material.appbar.AppBarLayout>
 

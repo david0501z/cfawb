@@ -56,6 +56,9 @@ class BrowserDesign(context: Context) : Design<BrowserDesign.Request>(context) {
     val tabsContainer: LinearLayout
         get() = binding.tabsContainer
 
+    val newTabButton: ImageButton
+        get() = binding.newTabButton
+
     init {
         binding.self = this
     }

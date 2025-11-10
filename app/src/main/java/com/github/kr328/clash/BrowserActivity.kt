@@ -22,7 +22,8 @@ import kotlinx.coroutines.isActive
 class BrowserActivity : BaseActivity<BrowserDesign>() {
     private data class BrowserTab(
         val webView: WebView,
-        val tabView: TextView
+        val tabView: TextView,
+        var title: String = "New Tab"
     )
 
     private val tabs = mutableListOf<BrowserTab>()
@@ -65,6 +66,10 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
 
         design.closeButton.setOnClickListener {
             finish()
+        }
+
+        design.newTabButton.setOnClickListener {
+            createNewTab(design, "https://www.google.com")
         }
 
         design.urlInput.setOnEditorActionListener { _, actionId, event ->
@@ -136,6 +141,11 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
 
         // Update URL input
         design.urlInput.setText(newTab.webView.url)
+        
+        // Update tab view appearance to show active tab
+        for (i in tabs.indices) {
+            tabs[i].tabView.isSelected = (i == currentTabIndex)
+        }
     }
 
     private fun setupWebView(webView: WebView) {
