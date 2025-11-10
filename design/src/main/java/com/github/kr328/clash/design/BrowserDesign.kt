@@ -2,6 +2,7 @@ package com.github.kr328.clash.design
 
 import android.content.Context
 import android.view.View
+import android.view.ViewGroup
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.EditText
@@ -21,7 +22,7 @@ class BrowserDesign(context: Context) : Design<BrowserDesign.Request>(context) {
     }
 
     private val binding = DesignBrowserBinding
-        .inflate(context.layoutInflater, context.root, false)
+        .inflate(context.layoutInflater, context.root ?: ViewGroup(context), true)
 
     override val root: View
         get() = binding.root
