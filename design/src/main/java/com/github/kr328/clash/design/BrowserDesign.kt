@@ -8,6 +8,8 @@ import android.webkit.WebViewClient
 import android.widget.EditText
 import android.widget.ImageButton
 import android.widget.ProgressBar
+import android.widget.LinearLayout
+import android.widget.TextView
 import com.github.kr328.clash.design.databinding.DesignBrowserBinding
 import com.github.kr328.clash.design.util.layoutInflater
 import com.github.kr328.clash.design.util.root
@@ -19,6 +21,9 @@ class BrowserDesign(context: Context) : Design<BrowserDesign.Request>(context) {
         Reload,
         Stop,
         LoadUrl,
+        Close,
+        NewTab,
+        SwitchTab,
     }
 
     private val binding = DesignBrowserBinding
@@ -27,8 +32,8 @@ class BrowserDesign(context: Context) : Design<BrowserDesign.Request>(context) {
     override val root: View
         get() = binding.root
 
-    val webView: WebView
-        get() = binding.webView
+    val webViewContainer: ViewGroup
+        get() = binding.webViewContainer
 
     val urlInput: EditText
         get() = binding.urlInput
@@ -44,6 +49,12 @@ class BrowserDesign(context: Context) : Design<BrowserDesign.Request>(context) {
 
     val reloadButton: ImageButton
         get() = binding.reloadButton
+
+    val closeButton: ImageButton
+        get() = binding.closeButton
+
+    val tabsContainer: LinearLayout
+        get() = binding.tabsContainer
 
     init {
         binding.self = this
