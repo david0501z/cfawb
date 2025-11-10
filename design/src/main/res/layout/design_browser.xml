@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <layout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools">
+    xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <data>
         <variable
@@ -14,60 +13,70 @@
         android:layout_height="match_parent"
         android:orientation="vertical">
 
-        <!-- Toolbar -->
-        <LinearLayout
+        <com.google.android.material.appbar.AppBarLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:padding="8dp"
-            android:gravity="center_vertical">
+            android:layout_height="wrap_content">
 
-            <ImageButton
-                android:id="@+id/backButton"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:src="@drawable/ic_baseline_arrow_back"
-                android:contentDescription="@string/back" />
-
-            <ImageButton
-                android:id="@+id/forwardButton"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:src="@drawable/ic_baseline_arrow_forward"
-                android:contentDescription="@string/forward" />
-
-            <ImageButton
-                android:id="@+id/reloadButton"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:src="@drawable/ic_baseline_refresh"
-                android:contentDescription="@string/reload" />
-
-            <EditText
-                android:id="@+id/urlInput"
-                android:layout_width="0dp"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:hint="@string/enter_url"
-                android:imeOptions="actionGo"
-                android:inputType="textUri"
-                android:padding="8dp"
-                android:singleLine="true" />
+                android:orientation="horizontal"
+                android:padding="8dp">
 
-        </LinearLayout>
+                <ImageButton
+                    android:id="@+id/backButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_vertical"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/back"
+                    android:padding="8dp"
+                    android:src="@drawable/ic_arrow_back" />
 
-        <!-- Progress Bar -->
+                <ImageButton
+                    android:id="@+id/forwardButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_vertical"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/forward"
+                    android:padding="8dp"
+                    android:src="@drawable/ic_arrow_forward" />
+
+                <EditText
+                    android:id="@+id/urlInput"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_vertical"
+                    android:layout_weight="1"
+                    android:hint="@string/enter_url"
+                    android:imeOptions="actionGo"
+                    android:inputType="textUri"
+                    android:maxLines="1"
+                    android:padding="8dp" />
+
+                <ImageButton
+                    android:id="@+id/reloadButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_vertical"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/reload"
+                    android:padding="8dp"
+                    android:src="@drawable/ic_refresh" />
+
+            </LinearLayout>
+
+        </com.google.android.material.appbar.AppBarLayout>
+
         <ProgressBar
             android:id="@+id/progressBar"
             style="?android:attr/progressBarStyleHorizontal"
             android:layout_width="match_parent"
-            android:layout_height="4dp"
+            android:layout_height="wrap_content"
+            android:indeterminate="true"
             android:visibility="gone" />
 
-        <!-- WebView -->
         <WebView
             android:id="@+id/webView"
             android:layout_width="match_parent"
