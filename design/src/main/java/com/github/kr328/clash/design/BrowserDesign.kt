@@ -22,7 +22,7 @@ class BrowserDesign(context: Context) : Design<BrowserDesign.Request>(context) {
     }
 
     private val binding = DesignBrowserBinding
-        .inflate(context.layoutInflater, context.root ?: ViewGroup(context), true)
+        .inflate(context.layoutInflater, context.root, false)
 
     override val root: View
         get() = binding.root
