@@ -72,6 +72,24 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             createNewTab(design, "https://www.google.com")
         }
 
+        design.downloadButton.setOnClickListener {
+            // Open download management activity
+            val intent = android.content.Intent(this, DownloadManagerActivity::class.java)
+            startActivity(intent)
+        }
+
+        design.historyButton.setOnClickListener {
+            // Open history management activity
+            val intent = android.content.Intent(this, HistoryManagerActivity::class.java)
+            startActivity(intent)
+        }
+
+        design.settingsButton.setOnClickListener {
+            // Navigate to proxy settings page
+            finish() // Close browser activity
+            // The main activity should handle navigation to settings
+        }
+
         design.urlInput.setOnEditorActionListener { _, actionId, event ->
             if (actionId == EditorInfo.IME_ACTION_SEARCH ||
                 actionId == EditorInfo.IME_ACTION_DONE ||

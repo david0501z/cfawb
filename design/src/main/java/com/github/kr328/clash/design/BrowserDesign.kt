@@ -24,6 +24,9 @@ class BrowserDesign(context: Context) : Design<BrowserDesign.Request>(context) {
         Close,
         NewTab,
         SwitchTab,
+        Download,
+        History,
+        Settings,
     }
 
     private val binding = DesignBrowserBinding
@@ -58,6 +61,15 @@ class BrowserDesign(context: Context) : Design<BrowserDesign.Request>(context) {
 
     val newTabButton: ImageButton
         get() = binding.newTabButton
+
+    val downloadButton: com.google.android.material.floatingactionbutton.FloatingActionButton
+        get() = binding.downloadButton
+
+    val historyButton: com.google.android.material.floatingactionbutton.FloatingActionButton
+        get() = binding.historyButton
+
+    val settingsButton: com.google.android.material.floatingactionbutton.FloatingActionButton
+        get() = binding.settingsButton
 
     init {
         binding.self = this

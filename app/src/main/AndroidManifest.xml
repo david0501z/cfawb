@@ -16,6 +16,8 @@
         tools:ignore="QueryAllPackagesPermission" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
 
     <application
         android:name=".MainApplication"
@@ -177,6 +179,16 @@
             android:configChanges="uiMode"
             android:exported="false"
             android:label="@string/browser" />
+        <activity
+            android:name=".DownloadManagerActivity"
+            android:configChanges="uiMode"
+            android:exported="false"
+            android:label="@string/download_manager" />
+        <activity
+            android:name=".HistoryManagerActivity"
+            android:configChanges="uiMode"
+            android:exported="false"
+            android:label="@string/history" />
         <activity
             android:name=".FilesActivity"
             android:configChanges="uiMode"
