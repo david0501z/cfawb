@@ -217,6 +217,20 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 design?.progressBar?.visibility = android.view.View.GONE
             }
         }
+
+        // Enable file upload support
+        webView.webChromeClient = object : WebChromeClient() {
+            // For Android 5.0+
+            override fun onShowFileChooser(
+                webView: WebView?,
+                filePathCallback: ValueCallback<Array<Uri>>?,
+                fileChooserParams: FileChooserParams?
+            ): Boolean {
+                // TODO: Implement file chooser for upload
+                filePathCallback?.onReceiveValue(null)
+                return true
+            }
+        }
     }
 
     private fun setupProxy() {
