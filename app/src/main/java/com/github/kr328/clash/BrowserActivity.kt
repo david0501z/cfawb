@@ -34,6 +34,60 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
         var title: String = "New Tab",
         var url: String = ""
     )
+    
+    // JavaScript interface to handle blob downloads
+    inner class BlobDownloadInterface {
+        @android.webkit.JavascriptInterface
+        fun onBlobDataReady(dataUrl: String, contentDisposition: String, mimeType: String) {
+            // Extract filename from contentDisposition
+            var filename = "download"
+            if (contentDisposition.contains("filename=")) {
+                val startIndex = contentDisposition.indexOf("filename=") + 9
+                val endIndex = contentDisposition.indexOf(";", startIndex)
+                filename = if (endIndex > startIndex) {
+                    contentDisposition.substring(startIndex, endIndex).replace("\"", "")
+                } else {
+                    contentDisposition.substring(startIndex).replace("\"", "")
+                }
+            }
+            
+            // Save data URL to file
+            saveDataUrlToFile(dataUrl, filename, mimeType)
+        }
+    }
+    
+    private fun saveDataUrlToFile(dataUrl: String, filename: String, mimeType: String) {
+        try {
+            // Remove data URL prefix (e.g., "data:image/png;base64,")
+            val base64Data = dataUrl.substring(dataUrl.indexOf(",") + 1)
+            val data = android.util.Base64.decode(base64Data, android.util.Base64.DEFAULT)
+            
+            // Save to downloads directory
+            val downloadsDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
+            val file = java.io.File(downloadsDir, filename)
+            
+            val fos = java.io.FileOutputStream(file)
+            fos.write(data)
+            fos.close()
+            
+            // Notify media scanner
+            android.media.MediaScannerConnection.scanFile(
+                this,
+                arrayOf(file.absolutePath),
+                arrayOf(mimeType),
+                null
+            )
+            
+            runOnUiThread {
+                Toast.makeText(this, "文件已下载: $filename", Toast.LENGTH_SHORT).show()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            runOnUiThread {
+                Toast.makeText(this, "下载失败: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
     private val tabs = mutableListOf<BrowserTab>()
     private var currentTabIndex = 0
@@ -315,6 +369,9 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             displayZoomControls = false
             setSupportZoom(true)
         }
+        
+        // Add JavaScript interface for handling blob downloads
+        webView.addJavascriptInterface(BlobDownloadInterface(), "AndroidInterface")
 
         webView.webViewClient = object : WebViewClient() {
             override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
@@ -370,6 +427,11 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             private var filePathCallback: ValueCallback<Array<Uri>?>? = null
             private var cameraPhotoPath: String? = null
             
+            override fun onProgressChanged(view: WebView?, newProgress: Int) {
+                super.onProgressChanged(view, newProgress)
+                design?.progressBar?.progress = newProgress
+            }
+            
             // For Android 5.0+
             override fun onShowFileChooser(
                 webView: WebView,
@@ -377,7 +439,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 fileChooserParams: FileChooserParams
             ): Boolean {
                 // Save the callback for later use
-                this.filePathCallback = filePathCallback
+                this@BrowserActivity.filePathCallback = filePathCallback
                 
                 // Create an intent to open the file chooser
                 val intent = fileChooserParams.createIntent()
@@ -398,19 +460,31 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
         // Enable download support
         webView.setDownloadListener { url, userAgent, contentDisposition, mimeType, contentLength ->
             // Handle download request
-            val request = DownloadManager.Request(Uri.parse(url))
-            request.setMimeType(mimeType)
-            request.addRequestHeader("User-Agent", userAgent)
-            request.setDescription("正在下载文件...")
-            request.setTitle(URLUtil.guessFileName(url, contentDisposition, mimeType))
-            request.allowScanningByMediaScanner()
-            request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-            request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, URLUtil.guessFileName(url, contentDisposition, mimeType))
-            
-            val dm = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-            dm.enqueue(request)
-            
-            Toast.makeText(this, "开始下载文件", Toast.LENGTH_SHORT).show()
+            // Check if the URL is a blob URL, which cannot be handled by DownloadManager directly
+            if (url.startsWith("blob:")) {
+                // For blob URLs, use JavaScript to extract the blob data
+                val js = "fetch('$url').then(r => r.blob()).then(b => {" +
+                         "  const r = new FileReader();" +
+                         "  r.onloadend = () => AndroidInterface.onBlobDataReady(r.result, '$contentDisposition', '$mimeType');" +
+                         "  r.readAsDataURL(b);" +
+                         "});"
+                webView.evaluateJavascript(js, null)
+            } else {
+                val request = DownloadManager.Request(Uri.parse(url))
+                request.setMimeType(mimeType)
+                request.addRequestHeader("User-Agent", userAgent)
+                request.setDescription("正在下载文件...")
+                request.setTitle(URLUtil.guessFileName(url, contentDisposition, mimeType))
+                request.allowScanningByMediaScanner()
+                request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                // Use the default download directory without requesting all file access permission
+                request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, URLUtil.guessFileName(url, contentDisposition, mimeType))
+                
+                val dm = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+                dm.enqueue(request)
+                
+                Toast.makeText(this, "开始下载文件", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
@@ -521,6 +595,10 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             val tabView = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 setPadding(8, 8, 8, 8)
+                // Set click listener for the entire row to switch to the tab
+                setOnClickListener {
+                    switchToTab(design, index)
+                }
             }
             
             val tabTitle = TextView(this).apply {
@@ -533,30 +611,29 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 gravity = Gravity.CENTER_VERTICAL
             }
             
-            val switchButton = Button(this).apply {
-                text = "切换"
-                setOnClickListener {
-                    switchToTab(design, index)
-                }
-            }
-            
+            // Remove the switch button since clicking the row will switch tabs
             val closeButton = ImageButton(this).apply {
                 setImageResource(android.R.drawable.ic_menu_close_clear_cancel)
-                setOnClickListener {
+                setOnClickListener { view ->
+                    // Stop propagation to prevent switching to the tab when closing
+                    view.stopPropagation()
                     closeTab(design, index)
                 }
             }
             
             tabView.addView(tabTitle)
-            tabView.addView(switchButton)
             tabView.addView(closeButton)
             popupView.addView(tabView)
         }
 
-        // Create popup window
+        // Create popup window with increased width
+        val displayMetrics = resources.displayMetrics
+        val screenWidth = displayMetrics.widthPixels
+        val popupWidth = (screenWidth * 0.8).toInt() // Use 80% of screen width
+        
         val popupWindow = PopupWindow(
             popupView,
-            ViewGroup.LayoutParams.WRAP_CONTENT,
+            popupWidth,
             ViewGroup.LayoutParams.WRAP_CONTENT
         ).apply {
             setBackgroundDrawable(ColorDrawable(android.graphics.Color.WHITE))
@@ -594,17 +671,28 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
     }
 }
 
+    // Add a property to hold the filePathCallback at class level
+    private var filePathCallback: ValueCallback<Array<Uri>?>? = null
+
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: android.content.Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         
         if (requestCode == REQUEST_CODE_FILE_CHOOSER) {
-            // Handle file chooser result
-            val webView = tabs.getOrNull(currentTabIndex)?.webView
-            if (webView != null) {
-                val webChromeClient = webView.webChromeClient
-                // Note: We can't directly access the filePathCallback from the WebChromeClient
-                // In a real implementation, you would need to store the callback in a way that
-                // it can be accessed here, or use a different approach to handle file uploads
+            if (resultCode == RESULT_OK) {
+                // Handle file chooser result
+                if (filePathCallback != null) {
+                    val results = if (data == null || data.data == null) {
+                        null
+                    } else {
+                        arrayOf(data.data!!)
+                    }
+                    filePathCallback?.onReceiveValue(results)
+                    filePathCallback = null
+                }
+            } else {
+                // User cancelled the file selection
+                filePathCallback?.onReceiveValue(null)
+                filePathCallback = null
             }
         }
     }

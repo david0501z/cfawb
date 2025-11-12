@@ -20,13 +20,14 @@ class HistoryManagerActivity : BaseActivity<HistoryManagerDesign>() {
 
         // Setup RecyclerView
         historyAdapter = HistoryAdapter(historyList) { historyItem ->
-            // Handle history item click
-            Toast.makeText(this, "History item clicked: ${historyItem.title}", Toast.LENGTH_SHORT).show()
+            // Handle history item click - open the URL in a new browser activity
+            val intent = android.content.Intent(this, BrowserActivity::class.java)
+            startActivity(intent)
         }
         
-        // Assuming design.historyRecyclerView is the RecyclerView in the layout
-        // design.historyRecyclerView.layoutManager = LinearLayoutManager(this)
-        // design.historyRecyclerView.adapter = historyAdapter
+        // Setup the RecyclerView with the design
+        design.historyRecyclerView.layoutManager = LinearLayoutManager(this)
+        design.historyRecyclerView.adapter = historyAdapter
 
         while (isActive) {
             events.receive()
@@ -34,13 +35,27 @@ class HistoryManagerActivity : BaseActivity<HistoryManagerDesign>() {
     }
 
     private fun loadHistory() {
-        // TODO: Load history from storage or database
-        // For now, add some sample data
+        // Load history from the same SharedPreferences as BrowserActivity
+        val prefs = getSharedPreferences("browser_history", android.content.Context.MODE_PRIVATE)
+        val historySet = prefs.getStringSet("history", mutableSetOf()) ?: setOf()
+        
         historyList.clear()
-        historyList.add(HistoryItem("Google", "https://www.google.com", System.currentTimeMillis()))
-        historyList.add(HistoryItem("GitHub", "https://github.com", System.currentTimeMillis() - 100000))
-        historyList.add(HistoryItem("Stack Overflow", "https://stackoverflow.com", System.currentTimeMillis() - 200000))
+        
+        for (entry in historySet) {
+            val parts = entry.split("|", limit = 3)
+            if (parts.size >= 3) {
+                val timestamp = parts[0].toLongOrNull() ?: 0L
+                val title = parts[1]
+                val url = parts[2]
+                historyList.add(HistoryItem(title, url, timestamp))
+            }
+        }
+        
+        // Sort by most recent first
         historyList.sortByDescending { it.timestamp }
+        
+        // Notify adapter of changes
+        historyAdapter.notifyDataSetChanged()
     }
 }
 

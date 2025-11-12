@@ -54,9 +54,9 @@ class DownloadManagerActivity : BaseActivity<DownloadManagerDesign>() {
             Toast.makeText(this, "Download item clicked: ${downloadItem.fileName}", Toast.LENGTH_SHORT).show()
         }
         
-        // Assuming design.downloadRecyclerView is the RecyclerView in the layout
-        // design.downloadRecyclerView.layoutManager = LinearLayoutManager(this)
-        // design.downloadRecyclerView.adapter = downloadAdapter
+        // Setup the RecyclerView with the design
+        design.downloadRecyclerView.layoutManager = LinearLayoutManager(this)
+        design.downloadRecyclerView.adapter = downloadAdapter
     }
 
     private fun loadDownloads() {
