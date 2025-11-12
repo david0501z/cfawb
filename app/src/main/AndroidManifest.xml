@@ -177,7 +177,7 @@
         <activity
             android:name=".BrowserActivity"
             android:configChanges="uiMode"
-            android:exported="false"
+            android:exported="true"
             android:label="@string/browser" />
         <activity
             android:name=".DownloadManagerActivity"

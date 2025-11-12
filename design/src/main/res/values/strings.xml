@@ -350,6 +350,7 @@
     <string name="download_manager">Download Manager</string>
     <string name="download">Download</string>
     <string name="history">History</string>
+    <string name="menu">Menu</string>
 
     <string name="hide_app_icon_title">Hide App Icon</string>
     <string name="hide_app_icon_desc">You can dial *#*#252746382#*#* to open this App</string>

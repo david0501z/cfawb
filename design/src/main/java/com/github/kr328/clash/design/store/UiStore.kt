@@ -16,7 +16,7 @@ class UiStore(context: Context) {
 
     var enableVpn: Boolean by store.boolean(
         key = "enable_vpn",
-        defaultValue = true
+        defaultValue = false
     )
 
     var darkMode: DarkMode by store.enum(

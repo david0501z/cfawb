@@ -27,6 +27,11 @@ class BrowserDesign(context: Context) : Design<BrowserDesign.Request>(context) {
         Download,
         History,
         Settings,
+        Menu,
+        CloseMenu,
+        HistoryMenu,
+        DownloadMenu,
+        SettingsMenu,
     }
 
     private val binding = DesignBrowserBinding
@@ -53,23 +58,32 @@ class BrowserDesign(context: Context) : Design<BrowserDesign.Request>(context) {
     val reloadButton: ImageButton
         get() = binding.reloadButton
 
-    val closeButton: ImageButton
-        get() = binding.closeButton
-
     val tabsContainer: LinearLayout
         get() = binding.tabsContainer
 
     val newTabButton: ImageButton
         get() = binding.newTabButton
 
-    val downloadButton: com.google.android.material.floatingactionbutton.FloatingActionButton
-        get() = binding.downloadButton
+    val addTabButton: ImageButton
+        get() = binding.addTabButton
 
-    val historyButton: com.google.android.material.floatingactionbutton.FloatingActionButton
-        get() = binding.historyButton
+    val menuButton: android.widget.ImageButton
+        get() = binding.menuButton
 
-    val settingsButton: com.google.android.material.floatingactionbutton.FloatingActionButton
-        get() = binding.settingsButton
+    val menuPopup: android.widget.LinearLayout
+        get() = binding.menuPopup
+
+    val closeMenuButton: android.widget.Button
+        get() = binding.closeMenuButton
+
+    val historyMenuButton: android.widget.Button
+        get() = binding.historyMenuButton
+
+    val downloadMenuButton: android.widget.Button
+        get() = binding.downloadMenuButton
+
+    val settingsMenuButton: android.widget.Button
+        get() = binding.settingsMenuButton
 
     init {
         binding.self = this

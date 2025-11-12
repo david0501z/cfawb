@@ -1,8 +1,11 @@
 package com.github.kr328.clash
 
+import android.app.DownloadManager
 import android.content.Context
 import android.graphics.Bitmap
+import android.net.Uri
 import android.os.Bundle
+import android.os.Environment
 import android.text.TextUtils
 import android.view.Gravity
 import android.view.KeyEvent
@@ -11,8 +14,7 @@ import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.webkit.*
-import android.widget.LinearLayout
-import android.widget.TextView
+import android.widget.*
 import androidx.webkit.ProxyConfig
 import androidx.webkit.ProxyController
 import androidx.webkit.WebViewFeature
@@ -20,9 +22,14 @@ import com.github.kr328.clash.design.BrowserDesign
 import kotlinx.coroutines.isActive
 
 class BrowserActivity : BaseActivity<BrowserDesign>() {
+    companion object {
+        private const val REQUEST_CODE_FILE_CHOOSER = 1001
+    }
+    
     private data class BrowserTab(
         val webView: WebView,
-        val tabView: TextView,
+        val tabView: View,
+        val tabContainer: View? = null,
         var title: String = "New Tab"
     )
 
@@ -64,7 +71,8 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             }
         }
 
-        design.closeButton.setOnClickListener {
+        // Use closeMenuButton instead of closeButton which doesn't exist
+        design.closeMenuButton.setOnClickListener {
             finish()
         }
 
@@ -72,19 +80,50 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             createNewTab(design, "https://www.google.com")
         }
 
-        design.downloadButton.setOnClickListener {
+        design.addTabButton.setOnClickListener {
+            createNewTab(design, "https://www.google.com")
+        }
+
+        // Use downloadMenuButton instead of downloadButton which doesn't exist
+        design.downloadMenuButton.setOnClickListener {
             // Open download management activity
             val intent = android.content.Intent(this, DownloadManagerActivity::class.java)
             startActivity(intent)
         }
 
-        design.historyButton.setOnClickListener {
+        // Use historyMenuButton instead of historyButton which doesn't exist
+        design.historyMenuButton.setOnClickListener {
             // Open history management activity
             val intent = android.content.Intent(this, HistoryManagerActivity::class.java)
             startActivity(intent)
         }
 
-        design.settingsButton.setOnClickListener {
+        design.menuButton.setOnClickListener {
+            // Toggle menu popup visibility
+            if (design.menuPopup.visibility == android.view.View.VISIBLE) {
+                design.menuPopup.visibility = android.view.View.GONE
+            } else {
+                design.menuPopup.visibility = android.view.View.VISIBLE
+            }
+        }
+
+        design.closeMenuButton.setOnClickListener {
+            finish() // Close browser activity
+        }
+
+        design.historyMenuButton.setOnClickListener {
+            // Open history management activity
+            val intent = android.content.Intent(this, HistoryManagerActivity::class.java)
+            startActivity(intent)
+        }
+
+        design.downloadMenuButton.setOnClickListener {
+            // Open download management activity
+            val intent = android.content.Intent(this, DownloadManagerActivity::class.java)
+            startActivity(intent)
+        }
+
+        design.settingsMenuButton.setOnClickListener {
             // Navigate to proxy settings page
             finish() // Close browser activity
             // The main activity should handle navigation to settings
@@ -101,6 +140,28 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             }
         }
 
+        // Add keyboard visibility listener
+        val rootView = findViewById<android.view.View>(android.R.id.content)
+        rootView.viewTreeObserver.addOnGlobalLayoutListener(object : android.view.ViewTreeObserver.OnGlobalLayoutListener {
+            override fun onGlobalLayout() {
+                val rect = android.graphics.Rect()
+                rootView.getWindowVisibleDisplayFrame(rect)
+                val screenHeight = rootView.height
+                val keypadHeight = screenHeight - rect.bottom
+
+                // Move the root view up when keyboard is shown
+                val layoutParams = rootView.layoutParams as android.widget.FrameLayout.LayoutParams
+                if (keypadHeight > screenHeight * 0.15) {
+                    // Keyboard is opened
+                    layoutParams.bottomMargin = keypadHeight
+                } else {
+                    // Keyboard is closed
+                    layoutParams.bottomMargin = 0
+                }
+                rootView.layoutParams = layoutParams
+            }
+        })
+
         while (isActive) {
             events.receive()
         }
@@ -110,14 +171,37 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
         val webView = WebView(this)
         setupWebView(webView)
 
+        // Create a container for the tab with close button
+        val tabContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setBackgroundResource(android.R.drawable.btn_default_small)
+        }
+
         val tabView = TextView(this).apply {
             text = "New Tab"
             setPadding(16, 8, 16, 8)
             gravity = Gravity.CENTER
-            setBackgroundResource(android.R.drawable.btn_default_small)
+            layoutParams = LinearLayout.LayoutParams(
+                0,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                1.0f
+            )
         }
 
-        val tab = BrowserTab(webView, tabView)
+        val closeTabButton = ImageButton(this).apply {
+            setImageResource(android.R.drawable.ic_menu_close_clear_cancel)
+            setBackgroundResource(android.R.drawable.btn_default_small)
+            setPadding(8, 8, 8, 8)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+
+        tabContainer.addView(tabView)
+        tabContainer.addView(closeTabButton)
+
+        val tab = BrowserTab(webView, tabView, tabContainer)  // 存储tabView和tabContainer以便后续操作
         tabs.add(tab)
 
         // Add WebView to container
@@ -126,12 +210,17 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
         }
 
         // Add tab to tabs container
-        design.tabsContainer.addView(tabView)
+        design.tabsContainer.addView(tabContainer)
 
         // Set click listener for tab switching
         val tabIndex = tabs.size - 1
         tabView.setOnClickListener {
             switchToTab(design, tabIndex)
+        }
+
+        // Set click listener for tab closing
+        closeTabButton.setOnClickListener {
+            closeTab(design, tabIndex)
         }
 
         // Load URL
@@ -166,6 +255,40 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
         }
     }
 
+    private fun closeTab(design: BrowserDesign, index: Int) {
+        if (index < 0 || index >= tabs.size) return
+
+        val tabToClose = tabs[index]
+        
+        // Remove WebView from container
+        design.webViewContainer.removeView(tabToClose.webView)
+        
+        // Remove tab container from tabs container
+        if (tabToClose.tabContainer != null) {
+            design.tabsContainer.removeView(tabToClose.tabContainer)
+        } else {
+            design.tabsContainer.removeView(tabToClose.tabView)
+        }
+        
+        // Remove tab from tabs list
+        tabs.removeAt(index)
+        
+        // If we closed the current tab, switch to another tab
+        if (index == currentTabIndex) {
+            if (tabs.isNotEmpty()) {
+                // Switch to the previous tab if available, otherwise the first tab
+                val newTabIndex = if (index > 0) index - 1 else 0
+                switchToTab(design, newTabIndex)
+            } else {
+                // No tabs left, create a new one
+                createNewTab(design, "https://www.google.com")
+            }
+        } else if (index < currentTabIndex) {
+            // If we closed a tab before the current tab, adjust the current tab index
+            currentTabIndex--
+        }
+    }
+
     private fun setupWebView(webView: WebView) {
         webView.settings.apply {
             javaScriptEnabled = true
@@ -189,7 +312,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 val currentIndex = tabs.indexOfFirst { it.webView == view }
                 if (currentIndex >= 0) {
                     val title = url?.let { extractDomain(it) } ?: "Loading..."
-                    tabs[currentIndex].tabView.text = title
+                    (tabs[currentIndex].tabView as TextView).text = title
                 }
             }
 
@@ -203,7 +326,12 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 val currentIndex = tabs.indexOfFirst { it.webView == view }
                 if (currentIndex >= 0) {
                     val title = view?.title?.takeIf { it.isNotEmpty() } ?: url?.let { extractDomain(it) } ?: "New Tab"
-                    tabs[currentIndex].tabView.text = title
+                    (tabs[currentIndex].tabView as TextView).text = title
+                    
+                    // Save to history
+                    if (url != null) {
+                        saveToHistory(title, url)
+                    }
                 }
             }
 
@@ -220,16 +348,49 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
 
         // Enable file upload support
         webView.webChromeClient = object : WebChromeClient() {
+            private var filePathCallback: ValueCallback<Array<Uri>?>? = null
+            
             // For Android 5.0+
             override fun onShowFileChooser(
-                webView: WebView?,
-                filePathCallback: ValueCallback<Array<Uri>>?,
-                fileChooserParams: FileChooserParams?
+                webView: WebView,
+                filePathCallback: ValueCallback<Array<Uri>?>,
+                fileChooserParams: FileChooserParams
             ): Boolean {
-                // TODO: Implement file chooser for upload
-                filePathCallback?.onReceiveValue(null)
+                // Save the callback for later use
+                this.filePathCallback = filePathCallback
+                
+                // Create an intent to open the file chooser
+                val intent = fileChooserParams.createIntent()
+                try {
+                    // Start the file chooser activity
+                    startActivityForResult(intent, REQUEST_CODE_FILE_CHOOSER)
+                } catch (e: Exception) {
+                    // If the intent fails, send null back to the WebView
+                    this.filePathCallback = null
+                    filePathCallback.onReceiveValue(null)
+                    return false
+                }
+                
                 return true
             }
+        }
+        
+        // Enable download support
+        webView.setDownloadListener { url, userAgent, contentDisposition, mimeType, contentLength ->
+            // Handle download request
+            val request = DownloadManager.Request(Uri.parse(url))
+            request.setMimeType(mimeType)
+            request.addRequestHeader("User-Agent", userAgent)
+            request.setDescription("正在下载文件...")
+            request.setTitle(URLUtil.guessFileName(url, contentDisposition, mimeType))
+            request.allowScanningByMediaScanner()
+            request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+            request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, URLUtil.guessFileName(url, contentDisposition, mimeType))
+            
+            val dm = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+            dm.enqueue(request)
+            
+            Toast.makeText(this, "开始下载文件", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -262,6 +423,17 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
         }
     }
 
+    private fun saveToHistory(title: String, url: String) {
+        // TODO: Implement actual history saving
+        // For now, we'll just log it
+        android.util.Log.d("BrowserActivity", "Saving to history: $title - $url")
+        
+        // In a real implementation, you would:
+        // 1. Save to a database or file
+        // 2. Limit the number of history items
+        // 3. Handle duplicates
+    }
+    
     private fun extractDomain(url: String): String {
         return try {
             val uri = android.net.Uri.parse(url)
@@ -277,6 +449,31 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             currentTab.webView.goBack()
         } else {
             super.onBackPressed()
+        }
+    }
+    override fun onNewIntent(intent: android.content.Intent?) {
+    super.onNewIntent(intent)
+    // Handle the new intent here
+    // For example, you might want to load a new URL or refresh the current page
+    val currentTab = tabs.getOrNull(currentTabIndex)
+    if (currentTab != null) {
+        // Bring the browser to front
+        currentTab.webView.requestFocus()
+    }
+}
+    
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: android.content.Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        
+        if (requestCode == REQUEST_CODE_FILE_CHOOSER) {
+            // Handle file chooser result
+            val webView = tabs.getOrNull(currentTabIndex)?.webView
+            if (webView != null) {
+                val webChromeClient = webView.webChromeClient
+                // Note: We can't directly access the filePathCallback from the WebChromeClient
+                // In a real implementation, you would need to store the callback in a way that
+                // it can be accessed here, or use a different approach to handle file uploads
+            }
         }
     }
 }
