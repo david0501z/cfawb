@@ -345,7 +345,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 design?.progressBar?.visibility = android.view.View.GONE
             }
         }
-
+/*
         // Enable file upload support
         webView.webChromeClient = object : WebChromeClient() {
             private var filePathCallback: ValueCallback<Array<Uri>?>? = null
@@ -392,6 +392,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             
             Toast.makeText(this, "开始下载文件", Toast.LENGTH_SHORT).show()
         }
+        */
     }
 
     private fun setupProxy() {
