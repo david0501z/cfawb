@@ -3,6 +3,12 @@ on:
   pull_request:
     types: [opened, reopened, synchronize]
   workflow_dispatch:
+    inputs:
+      enableclean:
+        description: '是否清理'
+        required: false
+        type: boolen
+        default: false
   push:
     branches:
       - main
@@ -61,6 +67,13 @@ jobs:
       #     echo "cat signing.properties"
       #     cat signing.properties
 
+      - name: CLean
+        if: enableclean
+        run: |
+          chmod +x ./gradlew
+          ./gradlew clean
+          
+      
       - name: Build
         if: success()
         run: |
