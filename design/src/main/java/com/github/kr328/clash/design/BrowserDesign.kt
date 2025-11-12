@@ -58,14 +58,8 @@ class BrowserDesign(context: Context) : Design<BrowserDesign.Request>(context) {
     val reloadButton: ImageButton
         get() = binding.reloadButton
 
-    val tabsContainer: LinearLayout
-        get() = binding.tabsContainer
-
     val newTabButton: ImageButton
         get() = binding.newTabButton
-
-    val addTabButton: ImageButton
-        get() = binding.addTabButton
 
     val menuButton: android.widget.ImageButton
         get() = binding.menuButton
