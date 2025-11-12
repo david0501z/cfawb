@@ -85,6 +85,9 @@ class BrowserDesign(context: Context) : Design<BrowserDesign.Request>(context) {
     val settingsMenuButton: android.widget.Button
         get() = binding.settingsMenuButton
 
+    val tabsCountButton: ImageButton
+        get() = binding.tabsCountButton
+
     init {
         binding.self = this
     }

@@ -30,7 +30,8 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
         val webView: WebView,
         val tabView: View,
         val tabContainer: View? = null,
-        var title: String = "New Tab"
+        var title: String = "New Tab",
+        var url: String = ""
     )
 
     private val tabs = mutableListOf<BrowserTab>()
@@ -91,7 +92,6 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             startActivity(intent)
         }
 
-        // Use historyMenuButton instead of historyButton which doesn't exist
         design.historyMenuButton.setOnClickListener {
             // Open history management activity
             val intent = android.content.Intent(this, HistoryManagerActivity::class.java)
@@ -129,6 +129,11 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             // The main activity should handle navigation to settings
         }
 
+        design.tabsCountButton.setOnClickListener {
+            // Show tabs management popup
+            showTabsManagementPopup(design)
+        }
+
         design.urlInput.setOnEditorActionListener { _, actionId, event ->
             if (actionId == EditorInfo.IME_ACTION_SEARCH ||
                 actionId == EditorInfo.IME_ACTION_DONE ||
@@ -140,7 +145,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             }
         }
 
-        // Add keyboard visibility listener
+        // Add keyboard visibility listener - adjust layout when keyboard appears
         val rootView = findViewById<android.view.View>(android.R.id.content)
         rootView.viewTreeObserver.addOnGlobalLayoutListener(object : android.view.ViewTreeObserver.OnGlobalLayoutListener {
             override fun onGlobalLayout() {
@@ -149,16 +154,23 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 val screenHeight = rootView.height
                 val keypadHeight = screenHeight - rect.bottom
 
-                // Move the root view up when keyboard is shown
-                val layoutParams = rootView.layoutParams as android.widget.FrameLayout.LayoutParams
                 if (keypadHeight > screenHeight * 0.15) {
-                    // Keyboard is opened
-                    layoutParams.bottomMargin = keypadHeight
+                    // Keyboard is opened - move the bottom navigation up
+                    val bottomNav = design.root.findViewById<android.view.View>(R.id.bottom_nav_container)
+                    if (bottomNav != null) {
+                        val layoutParams = bottomNav.layoutParams as android.widget.FrameLayout.LayoutParams
+                        layoutParams.bottomMargin = keypadHeight
+                        bottomNav.layoutParams = layoutParams
+                    }
                 } else {
-                    // Keyboard is closed
-                    layoutParams.bottomMargin = 0
+                    // Keyboard is closed - reset margins
+                    val bottomNav = design.root.findViewById<android.view.View>(R.id.bottom_nav_container)
+                    if (bottomNav != null) {
+                        val layoutParams = bottomNav.layoutParams as android.widget.FrameLayout.LayoutParams
+                        layoutParams.bottomMargin = 0
+                        bottomNav.layoutParams = layoutParams
+                    }
                 }
-                rootView.layoutParams = layoutParams
             }
         })
 
@@ -201,7 +213,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
         tabContainer.addView(tabView)
         tabContainer.addView(closeTabButton)
 
-        val tab = BrowserTab(webView, tabView, tabContainer)  // 存储tabView和tabContainer以便后续操作
+        val tab = BrowserTab(webView, tabView, tabContainer, url = url)  // 存储tabView和tabContainer以便后续操作
         tabs.add(tab)
 
         // Add WebView to container
@@ -225,6 +237,9 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
 
         // Load URL
         webView.loadUrl(url)
+
+        // Update tabs count
+        updateTabsCount(design)
 
         return tab
     }
@@ -287,6 +302,9 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             // If we closed a tab before the current tab, adjust the current tab index
             currentTabIndex--
         }
+        
+        // Update tabs count
+        updateTabsCount(design)
     }
 
     private fun setupWebView(webView: WebView) {
@@ -313,6 +331,8 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 if (currentIndex >= 0) {
                     val title = url?.let { extractDomain(it) } ?: "Loading..."
                     (tabs[currentIndex].tabView as TextView).text = title
+                    tabs[currentIndex].title = title
+                    tabs[currentIndex].url = url ?: ""
                 }
             }
 
@@ -327,6 +347,8 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 if (currentIndex >= 0) {
                     val title = view?.title?.takeIf { it.isNotEmpty() } ?: url?.let { extractDomain(it) } ?: "New Tab"
                     (tabs[currentIndex].tabView as TextView).text = title
+                    tabs[currentIndex].title = title
+                    tabs[currentIndex].url = url ?: ""
                     
                     // Save to history
                     if (url != null) {
@@ -345,10 +367,11 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 design?.progressBar?.visibility = android.view.View.GONE
             }
         }
-/*
+
         // Enable file upload support
         webView.webChromeClient = object : WebChromeClient() {
             private var filePathCallback: ValueCallback<Array<Uri>?>? = null
+            private var cameraPhotoPath: String? = null
             
             // For Android 5.0+
             override fun onShowFileChooser(
@@ -392,7 +415,6 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             
             Toast.makeText(this, "开始下载文件", Toast.LENGTH_SHORT).show()
         }
-        */
     }
 
     private fun setupProxy() {
@@ -425,16 +447,52 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
     }
 
     private fun saveToHistory(title: String, url: String) {
-        // TODO: Implement actual history saving
-        // For now, we'll just log it
-        android.util.Log.d("BrowserActivity", "Saving to history: $title - $url")
+        // Save to history using SharedPreferences
+        val prefs = getSharedPreferences("browser_history", Context.MODE_PRIVATE)
+        val history = prefs.getStringSet("history", mutableSetOf())?.toMutableSet() ?: mutableSetOf()
         
-        // In a real implementation, you would:
-        // 1. Save to a database or file
-        // 2. Limit the number of history items
-        // 3. Handle duplicates
+        // Create history entry with timestamp
+        val timestamp = System.currentTimeMillis()
+        val historyEntry = "$timestamp|$title|$url"
+        
+        // Add new entry
+        history.add(historyEntry)
+        
+        // Limit history to 100 entries
+        if (history.size > 100) {
+            // Sort by timestamp and remove oldest entries
+            val sortedHistory = history.sortedBy { entry ->
+                entry.substringBefore("|").toLongOrNull() ?: 0L
+            }
+            val entriesToRemove = sortedHistory.take(history.size - 100)
+            history.removeAll(entriesToRemove.toSet())
+        }
+        
+        // Save back to SharedPreferences
+        prefs.edit().putStringSet("history", history).apply()
     }
     
+    private fun getHistory(): List<HistoryEntry> {
+        val prefs = getSharedPreferences("browser_history", Context.MODE_PRIVATE)
+        val historySet = prefs.getStringSet("history", mutableSetOf()) ?: setOf()
+        
+        return historySet.mapNotNull { entry ->
+            val parts = entry.split("|", limit = 3)
+            if (parts.size >= 3) {
+                val timestamp = parts[0].toLongOrNull() ?: 0L
+                HistoryEntry(timestamp, parts[1], parts[2])
+            } else {
+                null
+            }
+        }.sortedByDescending { it.timestamp } // Sort by most recent first
+    }
+    
+    data class HistoryEntry(
+        val timestamp: Long,
+        val title: String,
+        val url: String
+    )
+
     private fun extractDomain(url: String): String {
         return try {
             val uri = android.net.Uri.parse(url)
@@ -442,6 +500,82 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
         } catch (e: Exception) {
             url
         }
+    }
+
+    private fun updateTabsCount(design: BrowserDesign) {
+        val tabCount = tabs.size
+        val tabCountText = if (tabCount > 0) "⓿".replace("0", tabCount.toString()) else "⓪"
+        design.tabsCountButton.contentDescription = "打开的页签数量: $tabCount"
+        // We'll update the button text to show the tab count
+        // Since we can't directly change the icon to show the number, we'll keep the icon
+        // but we could use a different approach if needed
+    }
+    
+    private fun showTabsManagementPopup(design: BrowserDesign) {
+        // Create a popup window to show all tabs
+        val popupView = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundResource(android.R.drawable.dialog_holo_light_frame)
+            setPadding(16, 16, 16, 16)
+        }
+
+        // Add each tab as a view in the popup
+        tabs.forEachIndexed { index, tab ->
+            val tabView = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                setPadding(8, 8, 8, 8)
+            }
+            
+            val tabTitle = TextView(this).apply {
+                text = tab.title
+                layoutParams = LinearLayout.LayoutParams(
+                    0,
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    1.0f
+                )
+                gravity = Gravity.CENTER_VERTICAL
+            }
+            
+            val switchButton = Button(this).apply {
+                text = "切换"
+                setOnClickListener {
+                    switchToTab(design, index)
+                }
+            }
+            
+            val closeButton = ImageButton(this).apply {
+                setImageResource(android.R.drawable.ic_menu_close_clear_cancel)
+                setOnClickListener {
+                    closeTab(design, index)
+                }
+            }
+            
+            tabView.addView(tabTitle)
+            tabView.addView(switchButton)
+            tabView.addView(closeButton)
+            popupView.addView(tabView)
+        }
+
+        // Create popup window
+        val popupWindow = PopupWindow(
+            popupView,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply {
+            setBackgroundDrawable(ColorDrawable(android.graphics.Color.WHITE))
+            isOutsideTouchable = true
+            isFocusable = true
+        }
+
+        // Show the popup window near the tabs count button
+        val location = IntArray(2)
+        design.tabsCountButton.getLocationOnScreen(location)
+        popupWindow.showAtLocation(
+            design.root,
+            Gravity.NO_GRAVITY,
+            location[0],
+            location[1] - popupWindow.height
+        )
     }
 
     override fun onBackPressed() {
@@ -462,7 +596,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
         currentTab.webView.requestFocus()
     }
 }
-    
+
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: android.content.Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         

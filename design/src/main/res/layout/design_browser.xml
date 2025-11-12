@@ -22,7 +22,7 @@
                 android:id="@+id/statusBarPlaceholder"
                 android:layout_width="match_parent"
                 android:layout_height="24dp"
-                android:background="@android:color/transparent" />
+                android:background="@color/color_clash_dark" />
 
             <!-- WebView Container -->
             <FrameLayout
@@ -33,6 +33,7 @@
 
             <!-- Bottom Navigation Bar -->
             <LinearLayout
+                android:id="@+id/bottom_nav_container"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
@@ -88,6 +89,17 @@
                     android:tint="@android:color/white" />
 
                 <ImageButton
+                    android:id="@+id/tabsCountButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_vertical"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/tabs_count"
+                    android:padding="8dp"
+                    android:src="@drawable/ic_baseline_view_list"
+                    android:tint="@android:color/white" />
+
+                <ImageButton
                     android:id="@+id/newTabButton"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -106,9 +118,68 @@
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:contentDescription="@string/menu"
                     android:padding="8dp"
-                    android:src="@drawable/ic_baseline_more_vert"
+                    android:src="@drawable/ic_baseline_menu"
                     android:tint="@android:color/white" />
 
+            </LinearLayout>
+
+            <!-- Menu Popup (above URL bar) -->
+            <LinearLayout
+                android:id="@+id/menuPopup"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="top|end"
+                android:layout_marginTop="8dp"
+                android:layout_marginEnd="8dp"
+                android:background="@android:color/white"
+                android:elevation="8dp"
+                android:orientation="vertical"
+                android:padding="8dp"
+                android:visibility="gone">
+
+                <Button
+                    android:id="@+id/closeMenuButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="?attr/selectableItemBackground"
+                    android:gravity="start|center_vertical"
+                    android:padding="12dp"
+                    android:text="@string/close"
+                    android:textAllCaps="false"
+                    android:textColor="@android:color/black" />
+
+                <Button
+                    android:id="@+id/historyMenuButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="?attr/selectableItemBackground"
+                    android:gravity="start|center_vertical"
+                    android:padding="12dp"
+                    android:text="@string/history"
+                    android:textAllCaps="false"
+                    android:textColor="@android:color/black" />
+
+                <Button
+                    android:id="@+id/downloadMenuButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="?attr/selectableItemBackground"
+                    android:gravity="start|center_vertical"
+                    android:padding="12dp"
+                    android:text="@string/download"
+                    android:textAllCaps="false"
+                    android:textColor="@android:color/black" />
+
+                <Button
+                    android:id="@+id/settingsMenuButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="?attr/selectableItemBackground"
+                    android:gravity="start|center_vertical"
+                    android:padding="12dp"
+                    android:text="返回代理页面"
+                    android:textAllCaps="false"
+                    android:textColor="@android:color/black" />
             </LinearLayout>
 
             <!-- History and Tabs Section -->
@@ -143,65 +214,6 @@
                     android:tint="@android:color/black" />
             </LinearLayout>
 
-        </LinearLayout>
-
-        <!-- Menu Popup -->
-        <LinearLayout
-            android:id="@+id/menuPopup"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="bottom|end"
-            android:layout_marginBottom="48dp"
-            android:layout_marginEnd="8dp"
-            android:background="@android:color/white"
-            android:elevation="8dp"
-            android:orientation="vertical"
-            android:padding="8dp"
-            android:visibility="gone">
-
-            <Button
-                android:id="@+id/closeMenuButton"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:background="?attr/selectableItemBackground"
-                android:gravity="start|center_vertical"
-                android:padding="12dp"
-                android:text="@string/close"
-                android:textAllCaps="false"
-                android:textColor="@android:color/black" />
-
-            <Button
-                android:id="@+id/historyMenuButton"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:background="?attr/selectableItemBackground"
-                android:gravity="start|center_vertical"
-                android:padding="12dp"
-                android:text="@string/history"
-                android:textAllCaps="false"
-                android:textColor="@android:color/black" />
-
-            <Button
-                android:id="@+id/downloadMenuButton"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:background="?attr/selectableItemBackground"
-                android:gravity="start|center_vertical"
-                android:padding="12dp"
-                android:text="@string/download"
-                android:textAllCaps="false"
-                android:textColor="@android:color/black" />
-
-            <Button
-                android:id="@+id/settingsMenuButton"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:background="?attr/selectableItemBackground"
-                android:gravity="start|center_vertical"
-                android:padding="12dp"
-                android:text="返回代理页面"
-                android:textAllCaps="false"
-                android:textColor="@android:color/black" />
         </LinearLayout>
 
         <ProgressBar
