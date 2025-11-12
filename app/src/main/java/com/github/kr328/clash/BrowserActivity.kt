@@ -158,13 +158,13 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 if (keypadHeight > screenHeight * 0.15) {
                     // Keyboard is opened - move the bottom navigation up
                     val bottomNav = design.bottomNavContainer
-                    val layoutParams = bottomNav.layoutParams as android.widget.FrameLayout.LayoutParams
+                    val layoutParams = bottomNav.layoutParams as android.view.ViewGroup.MarginLayoutParams
                     layoutParams.bottomMargin = keypadHeight
                     bottomNav.layoutParams = layoutParams
                 } else {
                     // Keyboard is closed - reset margins
                     val bottomNav = design.bottomNavContainer
-                    val layoutParams = bottomNav.layoutParams as android.widget.FrameLayout.LayoutParams
+                    val layoutParams = bottomNav.layoutParams as android.view.ViewGroup.MarginLayoutParams
                     layoutParams.bottomMargin = 0
                     bottomNav.layoutParams = layoutParams
                 }
