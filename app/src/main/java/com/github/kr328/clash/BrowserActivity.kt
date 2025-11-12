@@ -615,9 +615,13 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             val closeButton = ImageButton(this).apply {
                 setImageResource(android.R.drawable.ic_menu_close_clear_cancel)
                 setOnClickListener { view ->
-                    // Stop propagation to prevent switching to the tab when closing
-                    view.stopPropagation()
+                    // Close the tab without switching to it
                     closeTab(design, index)
+                }
+                setOnTouchListener { v, event ->
+                    // Stop touch event propagation to prevent switching to the tab when closing
+                    event.action = android.view.MotionEvent.ACTION_CANCEL
+                    false
                 }
             }
             
