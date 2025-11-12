@@ -168,7 +168,6 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                     layoutParams.bottomMargin = 0
                     bottomNav.layoutParams = layoutParams
                 }
-                }
             }
         })
 
