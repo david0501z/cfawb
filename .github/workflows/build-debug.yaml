@@ -7,7 +7,7 @@ on:
       enableclean:
         description: '是否清理'
         required: false
-        type: boolen
+        type: boolean
         default: false
   push:
     branches:
@@ -68,7 +68,7 @@ jobs:
       #     cat signing.properties
 
       - name: CLean
-        if: enableclean
+        if: ${{inputs.enableclean}}
         run: |
           chmod +x ./gradlew
           ./gradlew clean
