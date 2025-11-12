@@ -3,6 +3,7 @@ package com.github.kr328.clash
 import android.app.DownloadManager
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.drawable.ColorDrawable
 import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
