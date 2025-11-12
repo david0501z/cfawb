@@ -88,6 +88,9 @@ class BrowserDesign(context: Context) : Design<BrowserDesign.Request>(context) {
     val tabsCountButton: ImageButton
         get() = binding.tabsCountButton
 
+    val bottomNavContainer: ViewGroup
+        get() = binding.bottomNavContainer
+
     init {
         binding.self = this
     }
