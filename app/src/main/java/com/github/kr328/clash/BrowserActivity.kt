@@ -151,12 +151,27 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
         }
 
         design.menuButton.setOnClickListener {
-            // Toggle menu popup visibility
-            if (design.menuPopup.visibility == android.view.View.VISIBLE) {
-                design.menuPopup.visibility = android.view.View.GONE
-            } else {
-                design.menuPopup.visibility = android.view.View.VISIBLE
+            // Create a popup window for the menu
+            val popupView = design.menuPopup
+            val popupWindow = PopupWindow(
+                popupView,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                setBackgroundDrawable(ColorDrawable(android.graphics.Color.TRANSPARENT))
+                isOutsideTouchable = true
+                isFocusable = true
             }
+            
+            // Show the popup window near the menu button
+            val location = IntArray(2)
+            design.menuButton.getLocationOnScreen(location)
+            popupWindow.showAtLocation(
+                design.root,
+                Gravity.NO_GRAVITY,
+                location[0] - popupWindow.width + design.menuButton.width,
+                location[1] - popupWindow.height
+            )
         }
 
         design.closeMenuButton.setOnClickListener {
@@ -176,9 +191,9 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
         }
 
         design.settingsMenuButton.setOnClickListener {
-            // Navigate to proxy settings page
-            finish() // Close browser activity
-            // The main activity should handle navigation to settings
+            // Navigate to proxy settings page without closing browser
+            // Just minimize the browser activity to background
+            moveTaskToBack(true)
         }
 
         design.tabsCountButton.setOnClickListener {
@@ -265,10 +280,10 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
         tabs.add(tab)
 
         // Add WebView to container
-        if (tabs.size == 1) {
-            design.webViewContainer.addView(webView)
-        }
+        design.webViewContainer.addView(webView)
 
+        // Switch to the newly created tab
+        switchToTab(design, tabs.size - 1)
 
         // Set click listener for tab switching
         val tabIndex = tabs.size - 1
@@ -452,11 +467,32 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             // Check if the URL is a blob URL, which cannot be handled by DownloadManager directly
             if (url.startsWith("blob:")) {
                 // For blob URLs, use JavaScript to extract the blob data
-                val js = "fetch('$url').then(r => r.blob()).then(b => {" +
-                         "  const r = new FileReader();" +
-                         "  r.onloadend = () => AndroidInterface.onBlobDataReady(r.result, '$contentDisposition', '$mimeType');" +
-                         "  r.readAsDataURL(b);" +
-                         "});"
+                val js = """
+                    (function() {
+                        var xhr = new XMLHttpRequest();
+                        xhr.open('GET', '$url', true);
+                        xhr.responseType = 'blob';
+                        xhr.onload = function() {
+                            if (xhr.status === 200) {
+                                var blob = xhr.response;
+                                var reader = new FileReader();
+                                reader.onloadend = function() {
+                                    AndroidInterface.onBlobDataReady(reader.result, '$contentDisposition', '$mimeType');
+                                };
+                                reader.onerror = function() {
+                                    console.error('Error reading blob data');
+                                };
+                                reader.readAsDataURL(blob);
+                            } else {
+                                console.error('Failed to fetch blob: ' + xhr.status);
+                            }
+                        };
+                        xhr.onerror = function() {
+                            console.error('Network error while fetching blob');
+                        };
+                        xhr.send();
+                    })();
+                """.trimIndent()
                 webView.evaluateJavascript(js, null)
             } else {
                 val request = DownloadManager.Request(Uri.parse(url))
@@ -634,14 +670,12 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             isFocusable = true
         }
 
-        // Show the popup window near the tabs count button
-        val location = IntArray(2)
-        design.tabsCountButton.getLocationOnScreen(location)
+        // Show the popup window at the bottom of the screen, above the navigation bar
         popupWindow.showAtLocation(
             design.root,
-            Gravity.NO_GRAVITY,
-            location[0],
-            location[1] - popupWindow.height
+            Gravity.BOTTOM or Gravity.END,
+            0,
+            100  // 100dp margin from bottom to keep it above the bottom navigation
         )
     }
 
