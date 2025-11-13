@@ -148,30 +148,48 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
         }
 
         design.menuButton.setOnClickListener {
-            // Create a popup window for the menu
-            val popupView = design.menuPopup
-            val popupWindow = PopupWindow(
-                popupView,
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            ).apply {
-                setBackgroundDrawable(ColorDrawable(android.graphics.Color.TRANSPARENT))
-                isOutsideTouchable = true
-                isFocusable = true
+            // Toggle menu popup visibility
+            if (design.menuPopup.visibility == android.view.View.VISIBLE) {
+                // If menu is already visible, hide it
+                design.menuPopup.visibility = android.view.View.GONE
+            } else {
+                // If menu is not visible, show it using PopupWindow
+                val popupView = design.menuPopup
+                val popupWindow = PopupWindow(
+                    popupView,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    setBackgroundDrawable(ColorDrawable(android.graphics.Color.TRANSPARENT))
+                    isOutsideTouchable = true
+                    isFocusable = true
+                    
+                    // Dismiss the popup when it's dismissed
+                    setOnDismissListener {
+                        // Optional: Add any cleanup code here if needed
+                    }
+                }
+                
+                // Show the popup window near the menu button
+                val location = IntArray(2)
+                design.menuButton.getLocationOnScreen(location)
+                popupWindow.showAtLocation(
+                    design.root,
+                    Gravity.NO_GRAVITY,
+                    location[0] - popupWindow.width + design.menuButton.width,
+                    location[1] - popupWindow.height
+                )
             }
-            
-            // Show the popup window near the menu button
-            val location = IntArray(2)
-            design.menuButton.getLocationOnScreen(location)
-            popupWindow.showAtLocation(
-                design.root,
-                Gravity.NO_GRAVITY,
-                location[0] - popupWindow.width + design.menuButton.width,
-                location[1] - popupWindow.height
-            )
         }
 
-
+        design.closeMenuButton.setOnClickListener {
+            // Close the popup menu by dismissing the popup window
+            // We don't want to finish the activity here, just close the menu
+            // Find the PopupWindow instance and dismiss it
+            // Since we don't have a direct reference to the popupWindow created in menuButton listener,
+            // we'll hide the menuPopup view directly
+            design.menuPopup.visibility = android.view.View.GONE
+        }
 
         design.settingsMenuButton.setOnClickListener {
             // Navigate to proxy settings page without closing browser
@@ -478,20 +496,8 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 """.trimIndent()
                 webView.evaluateJavascript(js, null)
             } else {
-                val request = DownloadManager.Request(Uri.parse(url))
-                request.setMimeType(mimeType)
-                request.addRequestHeader("User-Agent", userAgent)
-                request.setDescription("正在下载文件...")
-                request.setTitle(URLUtil.guessFileName(url, contentDisposition, mimeType))
-                request.allowScanningByMediaScanner()
-                request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                // Use the default download directory without requesting all file access permission
-                request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, URLUtil.guessFileName(url, contentDisposition, mimeType))
-                
-                val dm = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-                dm.enqueue(request)
-                
-                Toast.makeText(this, "开始下载文件", Toast.LENGTH_SHORT).show()
+                // Use internal download via HTTP client to go through proxy
+                downloadFileViaApp(url, userAgent, contentDisposition, mimeType)
             }
         }
     }
@@ -706,4 +712,60 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             }
         }
     }
+}
+    private fun downloadFileViaApp(url: String, userAgent: String, contentDisposition: String, mimeType: String) {
+        // Create a coroutine to handle the download in the background
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+            try {
+                // Create HTTP client to download the file
+                val client = okhttp3.OkHttpClient()
+                val request = okhttp3.Request.Builder()
+                    .url(url)
+                    .addHeader("User-Agent", userAgent)
+                    .build()
+
+                client.newCall(request).execute().use { response ->
+                    if (response.isSuccessful) {
+                        // Determine filename from content-disposition header or URL
+                        var filename = URLUtil.guessFileName(url, contentDisposition, mimeType)
+                        if (filename.isEmpty()) {
+                            filename = "downloaded_file"
+                        }
+
+                        // Create download directory in app's private storage
+                        val downloadDir = File(getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "browser_downloads")
+                        if (!downloadDir.exists()) {
+                            downloadDir.mkdirs()
+                        }
+
+                        // Create file with the determined name
+                        val file = File(downloadDir, filename)
+
+                        // Write response body to file
+                        response.body?.byteStream()?.use { input ->
+                            java.io.FileOutputStream(file).use { output ->
+                                input.copyTo(output)
+                            }
+                        }
+
+                        // Update UI on main thread
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(this@BrowserActivity, "文件下载完成: $filename", Toast.LENGTH_SHORT).show()
+
+                            // Notify media scanner so the file appears in system file managers
+                            sendBroadcast(Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, Uri.fromFile(file)))
+                        }
+                    } else {
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(this@BrowserActivity, "下载失败: ${response.code}", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@BrowserActivity, "下载出错: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
 }
