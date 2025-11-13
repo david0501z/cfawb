@@ -21,8 +21,9 @@
             <View
                 android:id="@+id/statusBarPlaceholder"
                 android:layout_width="match_parent"
-                android:layout_height="48dp"
+                android:layout_height="42dp"
                 android:background="@color/color_clash_dark" />
+
 
             <!-- WebView Container -->
             <FrameLayout
@@ -110,6 +111,7 @@
                     android:src="@drawable/ic_baseline_add"
                     android:tint="@android:color/white" />
 
+
                 <ImageButton
                     android:id="@+id/menuButton"
                     android:layout_width="wrap_content"
@@ -123,13 +125,13 @@
 
             </LinearLayout>
 
-            <!-- Menu Popup (above URL bar) -->
+            <!-- Menu Popup (above bottom navigation) -->
             <LinearLayout
                 android:id="@+id/menuPopup"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_gravity="top|end"
-                android:layout_marginTop="8dp"
+                android:layout_gravity="bottom|end"
+                android:layout_marginBottom="64dp"
                 android:layout_marginEnd="8dp"
                 android:background="@android:color/white"
                 android:elevation="8dp"
