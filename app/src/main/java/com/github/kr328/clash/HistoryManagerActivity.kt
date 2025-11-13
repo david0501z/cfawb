@@ -26,8 +26,8 @@ class HistoryManagerActivity : BaseActivity<HistoryManagerDesign>() {
         }
         
         // Setup the RecyclerView with the design
-        design.historyRecyclerView.layoutManager = LinearLayoutManager(this)
-        design.historyRecyclerView.adapter = historyAdapter
+        design?.historyRecyclerView?.layoutManager = LinearLayoutManager(this)
+        design?.historyRecyclerView?.adapter = historyAdapter
 
         while (isActive) {
             events.receive()

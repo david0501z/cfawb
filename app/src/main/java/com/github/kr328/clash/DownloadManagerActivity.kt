@@ -55,8 +55,8 @@ class DownloadManagerActivity : BaseActivity<DownloadManagerDesign>() {
         }
         
         // Setup the RecyclerView with the design
-        design.downloadRecyclerView.layoutManager = LinearLayoutManager(this)
-        design.downloadRecyclerView.adapter = downloadAdapter
+        design?.downloadRecyclerView?.layoutManager = LinearLayoutManager(this)
+        design?.downloadRecyclerView?.adapter = downloadAdapter
     }
 
     private fun loadDownloads() {
