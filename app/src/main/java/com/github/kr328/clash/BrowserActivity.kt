@@ -136,9 +136,6 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             createNewTab(design, "https://www.google.com")
         }
 
-        design.addTabButton.setOnClickListener {
-            createNewTab(design, "https://www.google.com")
-        }
 
         // Use downloadMenuButton instead of downloadButton which doesn't exist
         design.downloadMenuButton.setOnClickListener {
@@ -272,8 +269,6 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             design.webViewContainer.addView(webView)
         }
 
-        // Add tab to tabs container
-        design.tabsContainer.addView(tabContainer)
 
         // Set click listener for tab switching
         val tabIndex = tabs.size - 1
@@ -329,12 +324,6 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
         // Remove WebView from container
         design.webViewContainer.removeView(tabToClose.webView)
         
-        // Remove tab container from tabs container
-        if (tabToClose.tabContainer != null) {
-            design.tabsContainer.removeView(tabToClose.tabContainer)
-        } else {
-            design.tabsContainer.removeView(tabToClose.tabView)
-        }
         
         // Remove tab from tabs list
         tabs.removeAt(index)
