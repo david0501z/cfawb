@@ -127,10 +127,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             }
         }
 
-        // Use closeMenuButton instead of closeButton which doesn't exist
-        design.closeMenuButton.setOnClickListener {
-            finish()
-        }
+
 
         design.newTabButton.setOnClickListener {
             createNewTab(design, "https://www.google.com")
@@ -174,21 +171,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             )
         }
 
-        design.closeMenuButton.setOnClickListener {
-            finish() // Close browser activity
-        }
 
-        design.historyMenuButton.setOnClickListener {
-            // Open history management activity
-            val intent = android.content.Intent(this, HistoryManagerActivity::class.java)
-            startActivity(intent)
-        }
-
-        design.downloadMenuButton.setOnClickListener {
-            // Open download management activity
-            val intent = android.content.Intent(this, DownloadManagerActivity::class.java)
-            startActivity(intent)
-        }
 
         design.settingsMenuButton.setOnClickListener {
             // Navigate to proxy settings page without closing browser

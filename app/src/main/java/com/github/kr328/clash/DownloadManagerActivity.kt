@@ -1,12 +1,8 @@
 package com.github.kr328.clash
 
-import android.Manifest
-import android.content.pm.PackageManager
 import android.os.Bundle
 import android.os.Environment
 import android.widget.Toast
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.github.kr328.clash.design.DownloadManagerDesign
@@ -22,17 +18,7 @@ class DownloadManagerActivity : BaseActivity<DownloadManagerDesign>() {
         val design = DownloadManagerDesign(this)
         setContentDesign(design)
 
-        // Check and request storage permission
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) 
-            != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(
-                this,
-                arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
-                REQUEST_CODE_PERMISSION
-            )
-        } else {
-            initializeDownloadManager()
-        }
+        initializeDownloadManager()
 
         while (isActive) {
             events.receive()
@@ -69,27 +55,7 @@ class DownloadManagerActivity : BaseActivity<DownloadManagerDesign>() {
         downloadList.sortByDescending { it.timestamp }
     }
 
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        when (requestCode) {
-            REQUEST_CODE_PERMISSION -> {
-                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    initializeDownloadManager()
-                } else {
-                    Toast.makeText(this, "Storage permission is required for download management", Toast.LENGTH_LONG).show()
-                    finish()
-                }
-            }
-        }
-    }
 
-    companion object {
-        private const val REQUEST_CODE_PERMISSION = 1001
-    }
 }
 
 data class DownloadItem(
