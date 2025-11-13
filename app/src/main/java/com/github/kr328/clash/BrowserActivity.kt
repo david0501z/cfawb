@@ -147,15 +147,18 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             startActivity(intent)
         }
 
+        // Store popup window reference as a class member
+        var menuPopupWindow: PopupWindow? = null
+        
         design.menuButton.setOnClickListener {
-            // Toggle menu popup visibility
-            if (design.menuPopup.visibility == android.view.View.VISIBLE) {
-                // If menu is already visible, hide it
-                design.menuPopup.visibility = android.view.View.GONE
+            // Check if popup is already showing
+            if (menuPopupWindow?.isShowing == true) {
+                // Dismiss the existing popup
+                menuPopupWindow?.dismiss()
             } else {
-                // If menu is not visible, show it using PopupWindow
+                // Create and show new popup
                 val popupView = design.menuPopup
-                val popupWindow = PopupWindow(
+                menuPopupWindow = PopupWindow(
                     popupView,
                     ViewGroup.LayoutParams.WRAP_CONTENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT
@@ -164,20 +167,20 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                     isOutsideTouchable = true
                     isFocusable = true
                     
-                    // Dismiss the popup when it's dismissed
+                    // Dismiss listener to clean up reference
                     setOnDismissListener {
-                        // Optional: Add any cleanup code here if needed
+                        menuPopupWindow = null
                     }
                 }
                 
                 // Show the popup window near the menu button
                 val location = IntArray(2)
                 design.menuButton.getLocationOnScreen(location)
-                popupWindow.showAtLocation(
+                menuPopupWindow?.showAtLocation(
                     design.root,
                     Gravity.NO_GRAVITY,
-                    location[0] - popupWindow.width + design.menuButton.width,
-                    location[1] - popupWindow.height
+                    location[0] - menuPopupWindow!!.width + design.menuButton.width,
+                    location[1] - menuPopupWindow!!.height
                 )
             }
         }
@@ -185,10 +188,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
         design.closeMenuButton.setOnClickListener {
             // Close the popup menu by dismissing the popup window
             // We don't want to finish the activity here, just close the menu
-            // Find the PopupWindow instance and dismiss it
-            // Since we don't have a direct reference to the popupWindow created in menuButton listener,
-            // we'll hide the menuPopup view directly
-            design.menuPopup.visibility = android.view.View.GONE
+            menuPopupWindow?.dismiss()
         }
 
         design.settingsMenuButton.setOnClickListener {
