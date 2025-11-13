@@ -347,6 +347,8 @@
     <string name="enter_url">Enter URL</string>
     <string name="browser">Browser</string>
     <string name="new_tab">New Tab</string>
+    <string name="add_tab">New Tab</string>
+
     <string name="tabs_count">Tabs Count</string>
     <string name="download_manager">Download Manager</string>
     <string name="download">Download</string>
