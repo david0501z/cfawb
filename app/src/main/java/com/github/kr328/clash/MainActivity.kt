@@ -72,8 +72,12 @@ class MainActivity : BaseActivity<MainDesign>() {
                             startActivity(HelpActivity::class.intent)
                         MainDesign.Request.OpenAbout ->
                             design.showAbout(queryAppVersionName())
-                        MainDesign.Request.OpenBrowser ->
-                            startActivity(BrowserActivity::class.intent)
+                        MainDesign.Request.OpenBrowser -> {
+                             val intent = Intent(this@MainActivity, BrowserActivity::class.java)
+                             intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                             startActivity(intent)
+                            //startActivity(BrowserActivity::class.intent)
+                        }
                     }
                 }
                 if (clashRunning) {
