@@ -175,6 +175,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
 
         // Use downloadMenuButton instead of downloadButton which doesn't exist
         design.downloadMenuButton.setOnClickListener {
+            Log.d("BrowserActivity", "Download button clicked")
             try {
                 // Open download management activity
                 val intent = android.content.Intent(this, DownloadManagerActivity::class.java)
@@ -185,6 +186,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
         }
 
         design.historyMenuButton.setOnClickListener {
+            Log.d("BrowserActivity", "History button clicked")
             try {
                 // Open history management activity
                 val intent = android.content.Intent(this, HistoryManagerActivity::class.java)
@@ -206,11 +208,13 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                     true
                 }
                 popup.menu.add("历史").setOnMenuItemClickListener { 
+                    Log.d("BrowserActivity", "Menu History button clicked")
                     val intent = Intent(this@BrowserActivity, HistoryManagerActivity::class.java)
                     startActivity(intent)
                     true 
                 }
                 popup.menu.add("下载").setOnMenuItemClickListener { 
+                    Log.d("BrowserActivity", "Menu Download button clicked")
                     val intent = Intent(this@BrowserActivity, DownloadManagerActivity::class.java)
                     startActivity(intent)
                     true 
@@ -236,6 +240,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
         }
 
         design.settingsMenuButton.setOnClickListener {
+            Log.d("BrowserActivity", "Settings button clicked")
             try {
                 // Navigate to proxy settings page without closing browser
                 // Just minimize the browser activity to background
@@ -354,10 +359,11 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 }
             }
 
-            // Set click listener for tab closing
+            // Set click listener for tab closing - capture tabIndex in a final variable to avoid closure issues
+            val closeTabIndex = tabIndex
             closeTabButton.setOnClickListener {
                 try {
-                    closeTab(design, tabIndex)
+                    closeTab(design, closeTabIndex)
                 } catch (e: Exception) {
                     Log.e("BrowserActivity", "Error closing tab", e)
                 }
@@ -792,6 +798,13 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             // Bring the browser to front
             currentTab.webView.requestFocus()
         }
+    }
+    
+    override fun onResume() {
+        super.onResume()
+        // Ensure the current tab is properly focused when returning to the activity
+        val currentTab = tabs.getOrNull(currentTabIndex)
+        currentTab?.webView?.requestFocus()
     }
 
     // Add a property to hold the filePathCallback at class level
