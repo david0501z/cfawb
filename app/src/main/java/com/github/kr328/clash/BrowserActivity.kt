@@ -2,12 +2,14 @@ package com.github.kr328.clash
 
 import android.app.DownloadManager
 import android.content.Context
+import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.drawable.ColorDrawable
 import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
 import android.text.TextUtils
+import android.util.Log
 import android.view.Gravity
 import android.view.KeyEvent
 import android.view.View
@@ -16,11 +18,18 @@ import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.webkit.*
 import android.widget.*
+import androidx.lifecycle.lifecycleScope
 import androidx.webkit.ProxyConfig
 import androidx.webkit.ProxyController
 import androidx.webkit.WebViewFeature
 import com.github.kr328.clash.design.BrowserDesign
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import java.io.File
 
 class BrowserActivity : BaseActivity<BrowserDesign>() {
     companion object {
@@ -712,10 +721,9 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             }
         }
     }
-}
     private fun downloadFileViaApp(url: String, userAgent: String, contentDisposition: String, mimeType: String) {
         // Create a coroutine to handle the download in the background
-        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+        lifecycleScope.launch {
             try {
                 // Create HTTP client to download the file
                 val client = okhttp3.OkHttpClient()
@@ -724,48 +732,43 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                     .addHeader("User-Agent", userAgent)
                     .build()
 
-                client.newCall(request).execute().use { response ->
-                    if (response.isSuccessful) {
-                        // Determine filename from content-disposition header or URL
-                        var filename = URLUtil.guessFileName(url, contentDisposition, mimeType)
-                        if (filename.isEmpty()) {
-                            filename = "downloaded_file"
-                        }
+                val response = client.newCall(request).execute()
+                if (response.isSuccessful) {
+                    // Determine filename from content-disposition header or URL
+                    var filename = URLUtil.guessFileName(url, contentDisposition, mimeType)
+                    if (filename.isEmpty()) {
+                        filename = "downloaded_file"
+                    }
 
-                        // Create download directory in app's private storage
-                        val downloadDir = File(getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "browser_downloads")
-                        if (!downloadDir.exists()) {
-                            downloadDir.mkdirs()
-                        }
+                    // Create download directory in app's private storage
+                    val downloadDir = File(getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "browser_downloads")
+                    if (!downloadDir.exists()) {
+                        downloadDir.mkdirs()
+                    }
 
-                        // Create file with the determined name
-                        val file = File(downloadDir, filename)
+                    // Create file with the determined name
+                    val file = File(downloadDir, filename)
 
-                        // Write response body to file
-                        response.body?.byteStream()?.use { input ->
-                            java.io.FileOutputStream(file).use { output ->
-                                input.copyTo(output)
-                            }
-                        }
-
-                        // Update UI on main thread
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(this@BrowserActivity, "文件下载完成: $filename", Toast.LENGTH_SHORT).show()
-
-                            // Notify media scanner so the file appears in system file managers
-                            sendBroadcast(Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, Uri.fromFile(file)))
-                        }
-                    } else {
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(this@BrowserActivity, "下载失败: ${response.code}", Toast.LENGTH_SHORT).show()
+                    // Write response body to file
+                    response.body?.byteStream()?.use { input ->
+                        java.io.FileOutputStream(file).use { output ->
+                            input.copyTo(output)
                         }
                     }
+
+                    // Update UI on main thread
+                    Toast.makeText(this@BrowserActivity, "文件下载完成: $filename", Toast.LENGTH_SHORT).show()
+
+                    // Notify media scanner so the file appears in system file managers
+                    sendBroadcast(Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, Uri.fromFile(file)))
+                } else {
+                    Toast.makeText(this@BrowserActivity, "下载失败: ${response.code}", Toast.LENGTH_SHORT).show()
                 }
+                response.close()
             } catch (e: Exception) {
                 e.printStackTrace()
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(this@BrowserActivity, "下载出错: ${e.message}", Toast.LENGTH_SHORT).show()
-                }
+                Toast.makeText(this@BrowserActivity, "下载出错: ${e.message}", Toast.LENGTH_SHORT).show()
             }
         }
+    }
 }
