@@ -201,7 +201,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 // Since we don't have a menu resource, we'll create menu items programmatically
                 popup.menu.add("关闭").setOnMenuItemClickListener { 
                     // Close the menu by just returning true
-                    true 
+                    finish()
                 }
                 popup.menu.add("历史").setOnMenuItemClickListener { 
                     val intent = Intent(this, HistoryManagerActivity::class.java)
