@@ -8,6 +8,17 @@ plugins {
     id("com.android.application")
 }
 
+android {
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
+    }
+    
+    kotlinOptions {
+        jvmTarget = "11"
+    }
+}
+
 dependencies {
     compileOnly(project(":hideapi"))
 
@@ -25,6 +36,10 @@ dependencies {
     implementation(libs.androidx.recyclerview)
     implementation(libs.google.material)
     implementation("androidx.webkit:webkit:1.4.0")
+    
+    // Add OkHttp dependency for BrowserActivity
+    implementation(platform("com.squareup.okhttp3:okhttp-bom:4.12.0"))
+    implementation("com.squareup.okhttp3:okhttp")
 }
 
 tasks.getByName("clean", type = Delete::class) {
