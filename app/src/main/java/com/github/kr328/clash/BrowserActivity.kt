@@ -71,8 +71,11 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             val base64Data = dataUrl.substring(dataUrl.indexOf(",") + 1)
             val data = android.util.Base64.decode(base64Data, android.util.Base64.DEFAULT)
             
-            // Save to downloads directory
-            val downloadsDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
+            // Save to app's specific downloads directory for consistency
+            val downloadsDir = File(android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS), "cfawb")
+            if (!downloadsDir.exists()) {
+                downloadsDir.mkdirs()
+            }
             val file = java.io.File(downloadsDir, filename)
             
             val fos = java.io.FileOutputStream(file)
@@ -87,13 +90,26 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 null
             )
             
+            // Also add to DownloadManager for better integration with system downloads
+            val downloadManager = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+            val downloadUri = Uri.fromFile(file)
+            val request = DownloadManager.Request(downloadUri).apply {
+                setTitle(filename)
+                setDescription("Downloaded from browser (blob)")
+                setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                setDestinationUri(Uri.fromFile(file))
+            }
+            downloadManager.enqueue(request)
+            
             runOnUiThread {
                 Toast.makeText(this, "文件已下载: $filename", Toast.LENGTH_SHORT).show()
             }
         } catch (e: Exception) {
             e.printStackTrace()
             runOnUiThread {
-                Toast.makeText(this, "下载失败: ${e.message}", Toast.LENGTH_SHORT).show()
+                val errorMessage = "下载失败: ${e.message ?: "Unknown error"}"
+                Log.e("BrowserActivity", "Blob download error", e)
+                Toast.makeText(this, errorMessage, Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -740,8 +756,8 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                         filename = "downloaded_file"
                     }
 
-                    // Create download directory in app's private storage
-                    val downloadDir = File(getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "browser_downloads")
+                    // Create download directory in public downloads folder for better accessibility
+                    val downloadDir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "cfawb")
                     if (!downloadDir.exists()) {
                         downloadDir.mkdirs()
                     }
@@ -761,13 +777,29 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
 
                     // Notify media scanner so the file appears in system file managers
                     sendBroadcast(Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, Uri.fromFile(file)))
+                    
+                    // Also add to DownloadManager for better integration with system downloads
+                    val downloadManager = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+                    val downloadUri = Uri.fromFile(file)
+                    val request = DownloadManager.Request(downloadUri).apply {
+                        setTitle(filename)
+                        setDescription("Downloaded from browser")
+                        setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                        setDestinationUri(Uri.fromFile(file))
+                    }
+                    downloadManager.enqueue(request)
                 } else {
-                    Toast.makeText(this@BrowserActivity, "下载失败: ${response.code}", Toast.LENGTH_SHORT).show()
+                    val errorBody = response.body?.string() ?: "Unknown error"
+                    val errorMessage = "下载失败: ${response.code} - ${response.message}"
+                    Log.e("BrowserActivity", "Download failed: ${errorMessage}, body: $errorBody")
+                    Toast.makeText(this@BrowserActivity, errorMessage, Toast.LENGTH_SHORT).show()
                 }
                 response.close()
             } catch (e: Exception) {
                 e.printStackTrace()
-                Toast.makeText(this@BrowserActivity, "下载出错: ${e.message}", Toast.LENGTH_SHORT).show()
+                val errorMessage = "下载出错: ${e.message ?: "Unknown error"}"
+                Log.e("BrowserActivity", "Download exception", e)
+                Toast.makeText(this@BrowserActivity, errorMessage, Toast.LENGTH_SHORT).show()
             }
         }
     }

@@ -13,6 +13,7 @@ class DownloadManagerActivity : BaseActivity<DownloadManagerDesign>() {
     private lateinit var downloadAdapter: DownloadAdapter
     private val downloadList = mutableListOf<DownloadItem>()
     private val downloadDir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "cfawb")
+    private val browserDownloadDir = File(getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "browser_downloads")
 
     override suspend fun main() {
         val design = DownloadManagerDesign(this)
@@ -47,9 +48,18 @@ class DownloadManagerActivity : BaseActivity<DownloadManagerDesign>() {
 
     private fun loadDownloads() {
         downloadList.clear()
-        if (downloadDir.exists()) {
-            downloadDir.listFiles()?.forEach { file ->
-                downloadList.add(DownloadItem(file.name, file.length(), file.lastModified()))
+        
+        // Load downloads from both directories
+        val directories = listOfNotNull(
+            downloadDir.takeIf { it.exists() },
+            browserDownloadDir.takeIf { it.exists() }
+        )
+        
+        directories.forEach { dir ->
+            dir.listFiles()?.forEach { file ->
+                if (file.isFile) { // Only add files, not subdirectories
+                    downloadList.add(DownloadItem(file.name, file.length(), file.lastModified()))
+                }
             }
         }
         downloadList.sortByDescending { it.timestamp }
