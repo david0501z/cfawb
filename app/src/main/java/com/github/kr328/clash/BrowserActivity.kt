@@ -741,8 +741,10 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
         // Create a coroutine to handle the download in the background
         lifecycleScope.launch {
             try {
-                // Create HTTP client to download the file
-                val client = okhttp3.OkHttpClient()
+                // Create HTTP client with proxy settings to go through Clash
+                val client = OkHttpClient.Builder()
+                    .proxy(java.net.Proxy(java.net.Proxy.Type.HTTP, java.net.InetSocketAddress("127.0.0.1", 7890)))
+                    .build()
                 val request = okhttp3.Request.Builder()
                     .url(url)
                     .addHeader("User-Agent", userAgent)
