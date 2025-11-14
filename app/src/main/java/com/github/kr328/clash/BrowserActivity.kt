@@ -130,22 +130,35 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
 
         // Setup UI event listeners
         design.backButton.setOnClickListener {
-            val currentTab = tabs.getOrNull(currentTabIndex)
-            if (currentTab?.webView?.canGoBack() == true) {
-                currentTab.webView.goBack()
+            try {
+                val currentTab = tabs.getOrNull(currentTabIndex)
+                if (currentTab?.webView?.canGoBack() == true) {
+                    currentTab.webView.goBack()
+                }
+            } catch (e: Exception) {
+                Log.e("BrowserActivity", "Error in back button click", e)
             }
         }
-
+        }
         design.forwardButton.setOnClickListener {
-            val currentTab = tabs.getOrNull(currentTabIndex)
-            if (currentTab?.webView?.canGoForward() == true) {
-                currentTab.webView.goForward()
+            try {
+                val currentTab = tabs.getOrNull(currentTabIndex)
+                if (currentTab?.webView?.canGoForward() == true) {
+                    currentTab.webView.goForward()
+                }
+            } catch (e: Exception) {
+        design.reloadButton.setOnClickListener {
+            try {
+                val currentTab = tabs.getOrNull(currentTabIndex)
+                if (isLoading) {
+                    currentTab?.webView?.stopLoading()
+                } else {
+                    currentTab?.webView?.reload()
+                }
+            } catch (e: Exception) {
+                Log.e("BrowserActivity", "Error in reload button click", e)
             }
         }
-
-        design.reloadButton.setOnClickListener {
-            val currentTab = tabs.getOrNull(currentTabIndex)
-            if (isLoading) {
                 currentTab?.webView?.stopLoading()
             } else {
                 currentTab?.webView?.reload()
@@ -155,15 +168,29 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
 
 
         design.newTabButton.setOnClickListener {
-            createNewTab(design, "https://www.google.com")
+            try {
+                createNewTab(design, "https://www.google.com")
+            } catch (e: Exception) {
+                Log.e("BrowserActivity", "Error in new tab button click", e)
+            }
         }
 
 
         // Use downloadMenuButton instead of downloadButton which doesn't exist
         design.downloadMenuButton.setOnClickListener {
-            // Open download management activity
-            val intent = android.content.Intent(this, DownloadManagerActivity::class.java)
-            startActivity(intent)
+            try {
+                // Open download management activity
+                val intent = android.content.Intent(this, DownloadManagerActivity::class.java)
+                startActivity(intent)
+            } catch (e: Exception) {
+        design.historyMenuButton.setOnClickListener {
+            try {
+                // Open history management activity
+                val intent = android.content.Intent(this, HistoryManagerActivity::class.java)
+                startActivity(intent)
+            } catch (e: Exception) {
+                Log.e("BrowserActivity", "Error in history menu button click", e)
+            }
         }
 
         design.historyMenuButton.setOnClickListener {
@@ -172,54 +199,56 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             startActivity(intent)
         }
 
-        // Store popup window reference as a class member
-        var menuPopupWindow: PopupWindow? = null
-        
+        // Use PopupMenu instead of PopupWindow to avoid view parent issues
         design.menuButton.setOnClickListener {
-            // Check if popup is already showing
-            if (menuPopupWindow?.isShowing == true) {
-                // Dismiss the existing popup
-                menuPopupWindow?.dismiss()
-            } else {
-                // Create and show new popup
-                val popupView = design.menuPopup
-                menuPopupWindow = PopupWindow(
-                    popupView,
-                    ViewGroup.LayoutParams.WRAP_CONTENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT
-                ).apply {
-                    setBackgroundDrawable(ColorDrawable(android.graphics.Color.TRANSPARENT))
-                    isOutsideTouchable = true
-                    isFocusable = true
-                    
-                    // Dismiss listener to clean up reference
-                    setOnDismissListener {
-                        menuPopupWindow = null
-                    }
+            try {
+                val popup = android.widget.PopupMenu(this, design.menuButton)
+                val inflater = popup.menuInflater
+                // Since we don't have a menu resource, we'll create menu items programmatically
+                popup.menu.add("关闭").setOnMenuItemClickListener { 
+                    // Close the menu by just returning true
+                    true 
+                }
+                popup.menu.add("历史").setOnMenuItemClickListener { 
+                    val intent = Intent(this, HistoryManagerActivity::class.java)
+                    startActivity(intent)
+                    true 
+                }
+                popup.menu.add("下载").setOnMenuItemClickListener { 
+                    val intent = Intent(this, DownloadManagerActivity::class.java)
+                    startActivity(intent)
+                    true 
+                }
+                popup.menu.add("返回代理页面").setOnMenuItemClickListener { 
+                    moveTaskToBack(true)
+                    true 
                 }
                 
-                // Show the popup window near the menu button
-                val location = IntArray(2)
-                design.menuButton.getLocationOnScreen(location)
-                menuPopupWindow?.showAtLocation(
-                    design.root,
-                    Gravity.NO_GRAVITY,
-                    location[0] - menuPopupWindow!!.width + design.menuButton.width,
-                    location[1] - menuPopupWindow!!.height
-                )
+                popup.show()
+            } catch (e: Exception) {
+                Log.e("BrowserActivity", "Error showing popup menu", e)
             }
         }
 
         design.closeMenuButton.setOnClickListener {
             // Close the popup menu by dismissing the popup window
             // We don't want to finish the activity here, just close the menu
-            menuPopupWindow?.dismiss()
+            // PopupMenu auto-dismisses, no action needed
         }
 
         design.settingsMenuButton.setOnClickListener {
-            // Navigate to proxy settings page without closing browser
-            // Just minimize the browser activity to background
-            moveTaskToBack(true)
+            try {
+                // Navigate to proxy settings page without closing browser
+                // Just minimize the browser activity to background
+                moveTaskToBack(true)
+            } catch (e: Exception) {
+        design.tabsCountButton.setOnClickListener {
+            try {
+                // Show tabs management popup
+                showTabsManagementPopup(design)
+            } catch (e: Exception) {
+                Log.e("BrowserActivity", "Error in tabs count button click", e)
+            }
         }
 
         design.tabsCountButton.setOnClickListener {
@@ -228,14 +257,20 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
         }
 
         design.urlInput.setOnEditorActionListener { _, actionId, event ->
-            if (actionId == EditorInfo.IME_ACTION_SEARCH ||
-                actionId == EditorInfo.IME_ACTION_DONE ||
-                (event != null && event.keyCode == KeyEvent.KEYCODE_ENTER)) {
-                loadUrlFromInput(design)
-                true
-            } else {
+            try {
+                if (actionId == EditorInfo.IME_ACTION_SEARCH ||
+                    actionId == EditorInfo.IME_ACTION_DONE ||
+                    (event != null && event.keyCode == KeyEvent.KEYCODE_ENTER)) {
+                    loadUrlFromInput(design)
+                    true
+                } else {
+                    false
+                }
+            } catch (e: Exception) {
+                Log.e("BrowserActivity", "Error in URL input action", e)
                 false
             }
+        }
         }
 
         // Add keyboard visibility listener - adjust layout when keyboard appears
@@ -269,123 +304,151 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
     }
 
     private fun createNewTab(design: BrowserDesign, url: String): BrowserTab {
-        val webView = WebView(this)
-        setupWebView(webView)
+        return try {
+            val webView = WebView(this)
+            setupWebView(webView)
 
-        // Create a container for the tab with close button
-        val tabContainer = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setBackgroundResource(android.R.drawable.btn_default_small)
+            // Create a container for the tab with close button
+            val tabContainer = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                setBackgroundResource(android.R.drawable.btn_default_small)
+            }
+
+            val tabView = TextView(this).apply {
+                text = "New Tab"
+                setPadding(16, 8, 16, 8)
+                gravity = Gravity.CENTER
+                layoutParams = LinearLayout.LayoutParams(
+                    0,
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    1.0f
+                )
+            }
+
+            val closeTabButton = ImageButton(this).apply {
+                setImageResource(android.R.drawable.ic_menu_close_clear_cancel)
+                setBackgroundResource(android.R.drawable.btn_default_small)
+                setPadding(8, 8, 8, 8)
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+            }
+
+            tabContainer.addView(tabView)
+            tabContainer.addView(closeTabButton)
+
+            val tab = BrowserTab(webView, tabView, tabContainer, url = url)  // 存储tabView和tabContainer以便后续操作
+            tabs.add(tab)
+
+            // Add WebView to container
+            design.webViewContainer.addView(webView)
+
+            // Switch to the newly created tab
+            switchToTab(design, tabs.size - 1)
+
+            // Set click listener for tab switching
+            val tabIndex = tabs.size - 1
+            tabView.setOnClickListener {
+                try {
+                    switchToTab(design, tabIndex)
+                } catch (e: Exception) {
+                    Log.e("BrowserActivity", "Error switching tab", e)
+                }
+            }
+
+            // Set click listener for tab closing
+            closeTabButton.setOnClickListener {
+                try {
+                    closeTab(design, tabIndex)
+                } catch (e: Exception) {
+                    Log.e("BrowserActivity", "Error closing tab", e)
+                }
+            }
+
+            // Load URL
+            webView.loadUrl(url)
+
+            // Update tabs count
+            updateTabsCount(design)
+
+            tab
+        } catch (e: Exception) {
+            Log.e("BrowserActivity", "Error creating new tab", e)
+            // Create a fallback tab with error message
+            val webView = WebView(this)
+            webView.loadData("<html><body><h1>Failed to create tab</h1><p>Error: ${e.message}</p></body></html>", "text/html", "UTF-8")
+            val tab = BrowserTab(webView, TextView(this).apply { text = "Error Tab" }, null, url = url)
+            tabs.add(tab)
+            design.webViewContainer.addView(webView)
+            updateTabsCount(design)
+            tab
         }
-
-        val tabView = TextView(this).apply {
-            text = "New Tab"
-            setPadding(16, 8, 16, 8)
-            gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(
-                0,
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                1.0f
-            )
-        }
-
-        val closeTabButton = ImageButton(this).apply {
-            setImageResource(android.R.drawable.ic_menu_close_clear_cancel)
-            setBackgroundResource(android.R.drawable.btn_default_small)
-            setPadding(8, 8, 8, 8)
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-            )
-        }
-
-        tabContainer.addView(tabView)
-        tabContainer.addView(closeTabButton)
-
-        val tab = BrowserTab(webView, tabView, tabContainer, url = url)  // 存储tabView和tabContainer以便后续操作
-        tabs.add(tab)
-
-        // Add WebView to container
-        design.webViewContainer.addView(webView)
-
-        // Switch to the newly created tab
-        switchToTab(design, tabs.size - 1)
-
-        // Set click listener for tab switching
-        val tabIndex = tabs.size - 1
-        tabView.setOnClickListener {
-            switchToTab(design, tabIndex)
-        }
-
-        // Set click listener for tab closing
-        closeTabButton.setOnClickListener {
-            closeTab(design, tabIndex)
-        }
-
-        // Load URL
-        webView.loadUrl(url)
-
-        // Update tabs count
-        updateTabsCount(design)
-
-        return tab
     }
 
     private fun switchToTab(design: BrowserDesign, index: Int) {
-        if (index < 0 || index >= tabs.size) return
+        try {
+            if (index < 0 || index >= tabs.size) return
 
-        val previousTab = tabs.getOrNull(currentTabIndex)
-        val newTab = tabs[index]
+            val previousTab = tabs.getOrNull(currentTabIndex)
+            val newTab = tabs[index]
 
-        // Remove current WebView from container
-        if (previousTab != null) {
-            design.webViewContainer.removeView(previousTab.webView)
-        }
+            // Remove current WebView from container
+            if (previousTab != null) {
+                design.webViewContainer.removeView(previousTab.webView)
+            }
 
-        // Add new WebView to container
-        design.webViewContainer.addView(newTab.webView)
+            // Add new WebView to container
+            design.webViewContainer.addView(newTab.webView)
 
-        // Update current tab index
-        currentTabIndex = index
+            // Update current tab index
+            currentTabIndex = index
 
-        // Update URL input
-        design.urlInput.setText(newTab.webView.url)
-        
-        // Update tab view appearance to show active tab
-        for (i in tabs.indices) {
-            tabs[i].tabView.isSelected = (i == currentTabIndex)
+            // Update URL input
+            design.urlInput.setText(newTab.webView.url)
+            
+            // Update tab view appearance to show active tab
+            for (i in tabs.indices) {
+                tabs[i].tabView.isSelected = (i == currentTabIndex)
+            }
+        } catch (e: Exception) {
+            Log.e("BrowserActivity", "Error switching tab", e)
         }
     }
 
     private fun closeTab(design: BrowserDesign, index: Int) {
-        if (index < 0 || index >= tabs.size) return
+        try {
+            if (index < 0 || index >= tabs.size) return
 
-        val tabToClose = tabs[index]
-        
-        // Remove WebView from container
-        design.webViewContainer.removeView(tabToClose.webView)
-        
-        
-        // Remove tab from tabs list
-        tabs.removeAt(index)
-        
-        // If we closed the current tab, switch to another tab
-        if (index == currentTabIndex) {
-            if (tabs.isNotEmpty()) {
-                // Switch to the previous tab if available, otherwise the first tab
-                val newTabIndex = if (index > 0) index - 1 else 0
-                switchToTab(design, newTabIndex)
-            } else {
-                // No tabs left, create a new one
-                createNewTab(design, "https://www.google.com")
+            val tabToClose = tabs[index]
+            
+            // Remove WebView from container
+            design.webViewContainer.removeView(tabToClose.webView)
+            
+            
+            // Remove tab from tabs list
+            tabs.removeAt(index)
+            
+            // If we closed the current tab, switch to another tab
+            if (index == currentTabIndex) {
+                if (tabs.isNotEmpty()) {
+                    // Switch to the previous tab if available, otherwise the first tab
+                    val newTabIndex = if (index > 0) index - 1 else 0
+                    switchToTab(design, newTabIndex)
+                } else {
+                    // No tabs left, create a new one
+                    createNewTab(design, "https://www.google.com")
+                }
+            } else if (index < currentTabIndex) {
+                // If we closed a tab before the current tab, adjust the current tab index
+                currentTabIndex--
             }
-        } else if (index < currentTabIndex) {
-            // If we closed a tab before the current tab, adjust the current tab index
-            currentTabIndex--
+            
+            // Update tabs count
+            updateTabsCount(design)
+        } catch (e: Exception) {
+            Log.e("BrowserActivity", "Error closing tab", e)
         }
-        
-        // Update tabs count
-        updateTabsCount(design)
     }
 
     private fun setupWebView(webView: WebView) {
@@ -622,84 +685,102 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
     }
     
     private fun showTabsManagementPopup(design: BrowserDesign) {
-        // Create a popup window to show all tabs
-        val popupView = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setBackgroundResource(android.R.drawable.dialog_holo_light_frame)
-            setPadding(16, 16, 16, 16)
-        }
-
-        // Add each tab as a view in the popup
-        tabs.forEachIndexed { index, tab ->
-            val tabView = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                setPadding(8, 8, 8, 8)
-                // Set click listener for the entire row to switch to the tab
-                setOnClickListener {
-                    switchToTab(design, index)
-                }
+        try {
+            // Create a popup window to show all tabs
+            val popupView = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setBackgroundResource(android.R.drawable.dialog_holo_light_frame)
+                setPadding(16, 16, 16, 16)
             }
-            
-            val tabTitle = TextView(this).apply {
-                text = tab.title
-                layoutParams = LinearLayout.LayoutParams(
-                    0,
-                    LinearLayout.LayoutParams.WRAP_CONTENT,
-                    1.0f
-                )
-                gravity = Gravity.CENTER_VERTICAL
-            }
-            
-            // Remove the switch button since clicking the row will switch tabs
-            val closeButton = ImageButton(this).apply {
-                setImageResource(android.R.drawable.ic_menu_close_clear_cancel)
-                setOnClickListener { view ->
-                    // Close the tab without switching to it
-                    closeTab(design, index)
-                }
-                setOnTouchListener { v, event ->
-                    // Stop touch event propagation to prevent switching to the tab when closing
-                    event.action = android.view.MotionEvent.ACTION_CANCEL
-                    false
-                }
-            }
-            
-            tabView.addView(tabTitle)
-            tabView.addView(closeButton)
-            popupView.addView(tabView)
-        }
 
-        // Create popup window with increased width
-        val displayMetrics = resources.displayMetrics
-        val screenWidth = displayMetrics.widthPixels
-        val popupWidth = (screenWidth * 0.8).toInt() // Use 80% of screen width
-        
-        val popupWindow = PopupWindow(
-            popupView,
-            popupWidth,
-            ViewGroup.LayoutParams.WRAP_CONTENT
-        ).apply {
-            setBackgroundDrawable(ColorDrawable(android.graphics.Color.WHITE))
-            isOutsideTouchable = true
-            isFocusable = true
-        }
+            // Add each tab as a view in the popup
+            tabs.forEachIndexed { index, tab ->
+                val tabView = LinearLayout(this).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    setPadding(8, 8, 8, 8)
+                    // Set click listener for the entire row to switch to the tab
+                    setOnClickListener {
+                        try {
+                            switchToTab(design, index)
+                        } catch (e: Exception) {
+                            Log.e("BrowserActivity", "Error switching tab from popup", e)
+                        }
+                    }
+                }
+                
+                val tabTitle = TextView(this).apply {
+                    text = tab.title
+                    layoutParams = LinearLayout.LayoutParams(
+                        0,
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        1.0f
+                    )
+                    gravity = Gravity.CENTER_VERTICAL
+                }
+                
+                // Remove the switch button since clicking the row will switch tabs
+                val closeButton = ImageButton(this).apply {
+                    setImageResource(android.R.drawable.ic_menu_close_clear_cancel)
+                    setOnClickListener { view ->
+                        try {
+                            // Close the tab without switching to it
+                            closeTab(design, index)
+                        } catch (e: Exception) {
+                            Log.e("BrowserActivity", "Error closing tab from popup", e)
+                        }
+                    }
+                    setOnTouchListener { v, event ->
+                        // Stop touch event propagation to prevent switching to the tab when closing
+                        event.action = android.view.MotionEvent.ACTION_CANCEL
+                        false
+                    }
+                }
+                
+                tabView.addView(tabTitle)
+                tabView.addView(closeButton)
+                popupView.addView(tabView)
+            }
 
-        // Show the popup window at the bottom of the screen, above the navigation bar
-        popupWindow.showAtLocation(
-            design.root,
-            Gravity.BOTTOM or Gravity.END,
-            0,
-            100  // 100dp margin from bottom to keep it above the bottom navigation
-        )
+            // Create popup window with increased width
+            val displayMetrics = resources.displayMetrics
+            val screenWidth = displayMetrics.widthPixels
+            val popupWidth = (screenWidth * 0.8).toInt() // Use 80% of screen width
+            
+            val popupWindow = PopupWindow(
+                popupView,
+                popupWidth,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                setBackgroundDrawable(ColorDrawable(android.graphics.Color.WHITE))
+                isOutsideTouchable = true
+                isFocusable = true
+            }
+
+            // Show the popup window at the bottom of the screen, above the navigation bar
+            popupWindow.showAtLocation(
+                design.root,
+                Gravity.BOTTOM or Gravity.END,
+                0,
+                100  // 100dp margin from bottom to keep it above the bottom navigation
+            )
+        } catch (e: Exception) {
+            Log.e("BrowserActivity", "Error showing tabs management popup", e)
+        }
     }
 
     override fun onBackPressed() {
-        val currentTab = tabs.getOrNull(currentTabIndex)
-        if (currentTab?.webView?.canGoBack() == true) {
-            currentTab.webView.goBack()
-        } else {
+        try {
+            val currentTab = tabs.getOrNull(currentTabIndex)
+            if (currentTab?.webView?.canGoBack() == true) {
+                currentTab.webView.goBack()
+            } else {
+                super.onBackPressed()
+            }
+        } catch (e: Exception) {
+            Log.e("BrowserActivity", "Error in back pressed", e)
             super.onBackPressed()
         }
+    }
     }
     override fun onNewIntent(intent: android.content.Intent?) {
     super.onNewIntent(intent)
