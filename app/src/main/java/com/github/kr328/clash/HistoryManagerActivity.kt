@@ -22,6 +22,7 @@ class HistoryManagerActivity : BaseActivity<HistoryManagerDesign>() {
         historyAdapter = HistoryAdapter(historyList) { historyItem ->
             // Handle history item click - open the URL in a new browser activity
             val intent = android.content.Intent(this, BrowserActivity::class.java)
+            intent.putExtra("url", historyItem.url)
             startActivity(intent)
         }
         

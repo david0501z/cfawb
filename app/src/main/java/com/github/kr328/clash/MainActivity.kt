@@ -75,9 +75,7 @@ class MainActivity : BaseActivity<MainDesign>() {
                             design.showAbout(queryAppVersionName())
                         MainDesign.Request.OpenBrowser -> {
                              val intent = Intent(this@MainActivity, BrowserActivity::class.java)
-                             intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
                              startActivity(intent)
-                            //startActivity(BrowserActivity::class.intent)
                         }
                     }
                 }

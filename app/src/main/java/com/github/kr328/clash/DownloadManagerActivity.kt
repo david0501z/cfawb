@@ -37,7 +37,7 @@ class DownloadManagerActivity : BaseActivity<DownloadManagerDesign>() {
 
         // Setup RecyclerView
         downloadAdapter = DownloadAdapter(downloadList) { downloadItem ->
-            // Handle download item click
+            // Handle download item click - show options for the downloaded file
             Toast.makeText(this, "Download item clicked: ${downloadItem.fileName}", Toast.LENGTH_SHORT).show()
         }
         

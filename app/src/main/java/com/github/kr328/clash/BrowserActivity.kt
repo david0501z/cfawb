@@ -125,8 +125,9 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
 
         setupProxy()
 
-        // Create first tab
-        createNewTab(design, "https://www.google.com")
+        // Create first tab - check if we have a URL from the intent
+        val initialUrl = intent.getStringExtra("url") ?: "https://www.google.com"
+        createNewTab(design, initialUrl)
 
         // Setup UI event listeners
         design.backButton.setOnClickListener {
@@ -217,7 +218,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 popup.menu.add("返回代理页面").setOnMenuItemClickListener { 
                     // Return to the main activity (proxy settings) without minimizing the app
                     val intent = Intent(this@BrowserActivity, MainActivity::class.java)
-                    intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+
                     startActivity(intent)
                     true 
                 }
@@ -783,7 +784,11 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
         // Handle the new intent here
         // For example, you might want to load a new URL or refresh the current page
         val currentTab = tabs.getOrNull(currentTabIndex)
-        if (currentTab != null) {
+        val newUrl = intent?.getStringExtra("url")
+        if (currentTab != null && !newUrl.isNullOrBlank()) {
+            // Load the new URL in the current tab
+            currentTab.webView.loadUrl(newUrl)
+        } else if (currentTab != null) {
             // Bring the browser to front
             currentTab.webView.requestFocus()
         }
