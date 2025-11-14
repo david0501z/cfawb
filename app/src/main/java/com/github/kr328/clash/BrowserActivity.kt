@@ -1,3 +1,4 @@
+
 package com.github.kr328.clash
 
 import android.app.DownloadManager
@@ -139,7 +140,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 Log.e("BrowserActivity", "Error in back button click", e)
             }
         }
-        }
+
         design.forwardButton.setOnClickListener {
             try {
                 val currentTab = tabs.getOrNull(currentTabIndex)
@@ -147,6 +148,10 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                     currentTab.webView.goForward()
                 }
             } catch (e: Exception) {
+                Log.e("BrowserActivity", "Error in forward button click", e)
+            }
+        }
+
         design.reloadButton.setOnClickListener {
             try {
                 val currentTab = tabs.getOrNull(currentTabIndex)
@@ -159,13 +164,6 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 Log.e("BrowserActivity", "Error in reload button click", e)
             }
         }
-                currentTab?.webView?.stopLoading()
-            } else {
-                currentTab?.webView?.reload()
-            }
-        }
-
-
 
         design.newTabButton.setOnClickListener {
             try {
@@ -175,7 +173,6 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             }
         }
 
-
         // Use downloadMenuButton instead of downloadButton which doesn't exist
         design.downloadMenuButton.setOnClickListener {
             try {
@@ -183,6 +180,10 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 val intent = android.content.Intent(this, DownloadManagerActivity::class.java)
                 startActivity(intent)
             } catch (e: Exception) {
+                Log.e("BrowserActivity", "Error in download menu button click", e)
+            }
+        }
+
         design.historyMenuButton.setOnClickListener {
             try {
                 // Open history management activity
@@ -191,12 +192,6 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             } catch (e: Exception) {
                 Log.e("BrowserActivity", "Error in history menu button click", e)
             }
-        }
-
-        design.historyMenuButton.setOnClickListener {
-            // Open history management activity
-            val intent = android.content.Intent(this, HistoryManagerActivity::class.java)
-            startActivity(intent)
         }
 
         // Use PopupMenu instead of PopupWindow to avoid view parent issues
@@ -242,6 +237,10 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 // Just minimize the browser activity to background
                 moveTaskToBack(true)
             } catch (e: Exception) {
+                Log.e("BrowserActivity", "Error in settings menu button click", e)
+            }
+        }
+
         design.tabsCountButton.setOnClickListener {
             try {
                 // Show tabs management popup
@@ -249,11 +248,6 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             } catch (e: Exception) {
                 Log.e("BrowserActivity", "Error in tabs count button click", e)
             }
-        }
-
-        design.tabsCountButton.setOnClickListener {
-            // Show tabs management popup
-            showTabsManagementPopup(design)
         }
 
         design.urlInput.setOnEditorActionListener { _, actionId, event ->
@@ -270,7 +264,6 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 Log.e("BrowserActivity", "Error in URL input action", e)
                 false
             }
-        }
         }
 
         // Add keyboard visibility listener - adjust layout when keyboard appears
@@ -781,17 +774,17 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             super.onBackPressed()
         }
     }
-    }
+    
     override fun onNewIntent(intent: android.content.Intent?) {
-    super.onNewIntent(intent)
-    // Handle the new intent here
-    // For example, you might want to load a new URL or refresh the current page
-    val currentTab = tabs.getOrNull(currentTabIndex)
-    if (currentTab != null) {
-        // Bring the browser to front
-        currentTab.webView.requestFocus()
+        super.onNewIntent(intent)
+        // Handle the new intent here
+        // For example, you might want to load a new URL or refresh the current page
+        val currentTab = tabs.getOrNull(currentTabIndex)
+        if (currentTab != null) {
+            // Bring the browser to front
+            currentTab.webView.requestFocus()
+        }
     }
-}
 
     // Add a property to hold the filePathCallback at class level
     private var filePathCallback: ValueCallback<Array<Uri>?>? = null
@@ -818,6 +811,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             }
         }
     }
+    
     private fun downloadFileViaApp(url: String, userAgent: String, contentDisposition: String, mimeType: String) {
         // Create a coroutine to handle the download in the background
         lifecycleScope.launch {
