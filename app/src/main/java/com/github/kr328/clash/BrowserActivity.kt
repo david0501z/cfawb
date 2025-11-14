@@ -204,18 +204,18 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                     finish()
                 }
                 popup.menu.add("历史").setOnMenuItemClickListener { 
-                    val intent = Intent(this, HistoryManagerActivity::class.java)
+                    val intent = Intent(this@BrowserActivity, HistoryManagerActivity::class.java)
                     startActivity(intent)
                     true 
                 }
                 popup.menu.add("下载").setOnMenuItemClickListener { 
-                    val intent = Intent(this, DownloadManagerActivity::class.java)
+                    val intent = Intent(this@BrowserActivity, DownloadManagerActivity::class.java)
                     startActivity(intent)
                     true 
                 }
                 popup.menu.add("返回代理页面").setOnMenuItemClickListener { 
                     // Return to the main activity (proxy settings) without minimizing the app
-                    val intent = Intent(this, MainActivity::class.java)
+                    val intent = Intent(this@BrowserActivity, MainActivity::class.java)
                     intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
                     startActivity(intent)
                     true 
