@@ -5,6 +5,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.drawable.ColorDrawable
 import android.net.Uri
@@ -138,6 +139,77 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             Log.d("BrowserActivity", "Copied to clipboard: $message")
         } catch (e: Exception) {
             Log.e("BrowserActivity", "Failed to copy to clipboard", e)
+        }
+    }
+    
+    private fun showProtocolHandlerDialog(protocolUrl: String, webView: WebView?) {
+        try {
+            val appName = getAppNameForProtocol(protocolUrl)
+            val message = "此链接需要在 $appName 应用中打开。\n\n链接: $protocolUrl\n\n是否允许打开？"
+            
+            android.app.AlertDialog.Builder(this)
+                .setTitle("打开外部应用")
+                .setMessage(message)
+                .setPositiveButton("允许") { _, _ ->
+                    tryOpenExternalApp(protocolUrl)
+                }
+                .setNegativeButton("取消") { dialog, _ ->
+                    dialog.dismiss()
+                    // 用户取消时，保持在当前页面不做任何操作
+                    Log.d("BrowserActivity", "User cancelled opening external app, staying on current page")
+                }
+                .setOnCancelListener {
+                    // 对话框被取消时，也保持在当前页面
+                    Log.d("BrowserActivity", "Dialog cancelled, staying on current page")
+                }
+                .setCancelable(true)
+                .show()
+                
+        } catch (e: Exception) {
+            Log.e("BrowserActivity", "Error showing protocol handler dialog", e)
+        }
+    }
+    
+    private fun getAppNameForProtocol(protocolUrl: String): String {
+        return when {
+            protocolUrl.startsWith("baiduboxapp://") -> "百度"
+            protocolUrl.startsWith("weixin://") -> "微信"
+            protocolUrl.startsWith("alipay://") -> "支付宝"
+            protocolUrl.startsWith("taobao://") -> "淘宝"
+            protocolUrl.startsWith("qq://") -> "QQ"
+            protocolUrl.startsWith("mqq://") -> "手机QQ"
+            protocolUrl.startsWith("zhihu://") -> "知乎"
+            protocolUrl.startsWith("douyin://") -> "抖音"
+            protocolUrl.startsWith("tiktok://") -> "TikTok"
+            else -> "相应"
+        }
+    }
+    
+    private fun tryOpenExternalApp(protocolUrl: String) {
+        try {
+            Log.d("BrowserActivity", "Attempting to open external app with URL: $protocolUrl")
+            
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(protocolUrl))
+            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            
+            // 检查是否有应用可以处理此意图
+            val packageManager = packageManager
+            val activities = packageManager.queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY)
+            
+            if (activities.isNotEmpty()) {
+                startActivity(intent)
+                Log.d("BrowserActivity", "Successfully launched external app")
+            } else {
+                Log.w("BrowserActivity", "No app found to handle protocol: $protocolUrl")
+                runOnUiThread {
+                    Toast.makeText(this@BrowserActivity, "未找到能处理此链接的应用", Toast.LENGTH_LONG).show()
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("BrowserActivity", "Error opening external app", e)
+            runOnUiThread {
+                Toast.makeText(this@BrowserActivity, "打开应用失败: ${e.message}", Toast.LENGTH_LONG).show()
+            }
         }
     }
 
@@ -503,6 +575,26 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
         webView.addJavascriptInterface(BlobDownloadInterface(), "AndroidInterface")
 
         webView.webViewClient = object : WebViewClient() {
+            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                val url = request?.url?.toString()
+                Log.d("BrowserActivity", "shouldOverrideUrlLoading: $url")
+                
+                // 处理特殊协议，如 baiduboxapp://
+                if (url != null && url.startsWith("baiduboxapp://")) {
+                    Log.d("BrowserActivity", "Intercepted baiduboxapp URL: $url")
+                    try {
+                        // 显示对话框询问用户是否要打开对应的应用
+                        showProtocolHandlerDialog(url, view)
+                        return true
+                    } catch (e: Exception) {
+                        Log.e("BrowserActivity", "Error processing baiduboxapp URL", e)
+                        return true
+                    }
+                }
+                
+                return false
+            }
+            
             override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                 super.onPageStarted(view, url, favicon)
                 isLoading = true
@@ -548,6 +640,9 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 super.onReceivedError(view, request, error)
                 isLoading = false
                 design?.progressBar?.visibility = android.view.View.GONE
+                
+                val url = request?.url?.toString()
+                Log.e("BrowserActivity", "Loading error for URL: $url, error: ${error?.description}")
             }
         }
 
