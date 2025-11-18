@@ -64,12 +64,19 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
     
     private fun saveDataUrlToFile(dataUrl: String, filename: String, mimeType: String) {
         try {
-            Log.d("BrowserActivity", "Saving blob data to file: $filename")
+            val logMessage = "Saving blob data to file: $filename"
+            Log.d("BrowserActivity", logMessage)
+            
+            // 复制日志信息到剪贴板
+            copyToClipboard(logMessage)
             
             // Remove data URL prefix (e.g., "data:image/png;base64,")
             val commaIndex = dataUrl.indexOf(",")
             if (commaIndex == -1) {
-                throw IllegalArgumentException("Invalid data URL format")
+                val errorMsg = "Invalid data URL format"
+                Log.e("BrowserActivity", errorMsg)
+                copyToClipboard("Blob Error: $errorMsg")
+                throw IllegalArgumentException(errorMsg)
             }
             
             val base64Data = dataUrl.substring(commaIndex + 1)
@@ -86,7 +93,9 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             fos.write(data)
             fos.close()
             
-            Log.d("BrowserActivity", "Blob file saved successfully: ${file.absolutePath}")
+            val successMessage = "Blob file saved successfully: ${file.absolutePath}"
+            Log.d("BrowserActivity", successMessage)
+            copyToClipboard(successMessage)
             
             // Notify media scanner
             android.media.MediaScannerConnection.scanFile(
@@ -108,15 +117,27 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             downloadManager.enqueue(request)
             
             runOnUiThread {
-                Toast.makeText(this, "Blob文件已下载: $filename", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Blob文件已下载: $filename\n日志已复制到剪贴板", Toast.LENGTH_LONG).show()
             }
         } catch (e: Exception) {
             e.printStackTrace()
-            Log.e("BrowserActivity", "Blob download error", e)
+            val errorMessage = "Blob下载失败: ${e.message ?: "Unknown error"}"
+            Log.e("BrowserActivity", errorMessage, e)
+            copyToClipboard(errorMessage)
             runOnUiThread {
-                val errorMessage = "Blob下载失败: ${e.message ?: "Unknown error"}"
-                Toast.makeText(this, errorMessage, Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "$errorMessage\n错误日志已复制到剪贴板", Toast.LENGTH_LONG).show()
             }
+        }
+    }
+    
+    private fun copyToClipboard(message: String) {
+        try {
+            val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            val clip = ClipData.newPlainText("BrowserActivity Log", message)
+            clipboard.setPrimaryClip(clip)
+            Log.d("BrowserActivity", "Copied to clipboard: $message")
+        } catch (e: Exception) {
+            Log.e("BrowserActivity", "Failed to copy to clipboard", e)
         }
     }
 
@@ -161,10 +182,16 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
         design.reloadButton.setOnClickListener {
             try {
                 val currentTab = tabs.getOrNull(currentTabIndex)
-                if (isLoading) {
-                    currentTab?.webView?.stopLoading()
+                if (currentTab != null) {
+                    if (isLoading) {
+                        Log.d("BrowserActivity", "Stopping loading in current tab ($currentTabIndex)")
+                        currentTab.webView.stopLoading()
+                    } else {
+                        Log.d("BrowserActivity", "Reloading current tab ($currentTabIndex): ${currentTab.webView.url}")
+                        currentTab.webView.reload()
+                    }
                 } else {
-                    currentTab?.webView?.reload()
+                    Log.w("BrowserActivity", "No current tab available for reload")
                 }
             } catch (e: Exception) {
                 Log.e("BrowserActivity", "Error in reload button click", e)
@@ -628,7 +655,14 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             }
             
             val currentTab = tabs.getOrNull(currentTabIndex)
-            currentTab?.webView?.loadUrl(url)
+            if (currentTab != null) {
+                Log.d("BrowserActivity", "Loading URL in current tab ($currentTabIndex): $url")
+                currentTab.webView.loadUrl(url)
+                // 更新当前标签页的URL信息
+                currentTab.url = url
+            } else {
+                Log.w("BrowserActivity", "No current tab available for URL loading")
+            }
             
             // Hide keyboard
             val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
