@@ -64,8 +64,15 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
     
     private fun saveDataUrlToFile(dataUrl: String, filename: String, mimeType: String) {
         try {
+            Log.d("BrowserActivity", "Saving blob data to file: $filename")
+            
             // Remove data URL prefix (e.g., "data:image/png;base64,")
-            val base64Data = dataUrl.substring(dataUrl.indexOf(",") + 1)
+            val commaIndex = dataUrl.indexOf(",")
+            if (commaIndex == -1) {
+                throw IllegalArgumentException("Invalid data URL format")
+            }
+            
+            val base64Data = dataUrl.substring(commaIndex + 1)
             val data = android.util.Base64.decode(base64Data, android.util.Base64.DEFAULT)
             
             // Save to app's specific downloads directory for consistency
@@ -78,6 +85,8 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             val fos = java.io.FileOutputStream(file)
             fos.write(data)
             fos.close()
+            
+            Log.d("BrowserActivity", "Blob file saved successfully: ${file.absolutePath}")
             
             // Notify media scanner
             android.media.MediaScannerConnection.scanFile(
@@ -99,14 +108,14 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             downloadManager.enqueue(request)
             
             runOnUiThread {
-                Toast.makeText(this, "文件已下载: $filename", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Blob文件已下载: $filename", Toast.LENGTH_SHORT).show()
             }
         } catch (e: Exception) {
             e.printStackTrace()
+            Log.e("BrowserActivity", "Blob download error", e)
             runOnUiThread {
-                val errorMessage = "下载失败: ${e.message ?: "Unknown error"}"
-                Log.e("BrowserActivity", "Blob download error", e)
-                Toast.makeText(this, errorMessage, Toast.LENGTH_SHORT).show()
+                val errorMessage = "Blob下载失败: ${e.message ?: "Unknown error"}"
+                Toast.makeText(this, errorMessage, Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -404,8 +413,8 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             // Update current tab index
             currentTabIndex = index
 
-            // Update URL input
-            design.urlInput.setText(newTab.webView.url)
+            // Update URL input with current URL
+            design.urlInput.setText(newTab.webView.url ?: "")
             
             // Update tab view appearance to show active tab
             for (i in tabs.indices) {
@@ -555,9 +564,10 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             // Handle download request
             // Check if the URL is a blob URL, which cannot be handled by DownloadManager directly
             if (url.startsWith("blob:")) {
-                // For blob URLs, use JavaScript to extract the blob data
+                // For blob URLs, use JavaScript to extract the blob data and convert to data URL
                 val js = """
                     (function() {
+                        console.log('Processing blob download: $url');
                         var xhr = new XMLHttpRequest();
                         xhr.open('GET', '$url', true);
                         xhr.responseType = 'blob';
@@ -566,7 +576,12 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                                 var blob = xhr.response;
                                 var reader = new FileReader();
                                 reader.onloadend = function() {
-                                    AndroidInterface.onBlobDataReady(reader.result, '$contentDisposition', '$mimeType');
+                                    if (reader.result) {
+                                        console.log('Blob converted to data URL successfully');
+                                        AndroidInterface.onBlobDataReady(reader.result, '$contentDisposition', '$mimeType');
+                                    } else {
+                                        console.error('Failed to convert blob to data URL');
+                                    }
                                 };
                                 reader.onerror = function() {
                                     console.error('Error reading blob data');
@@ -582,9 +597,11 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                         xhr.send();
                     })();
                 """.trimIndent()
-                webView.evaluateJavascript(js, null)
+                webView.evaluateJavascript(js) { result ->
+                    Log.d("BrowserActivity", "JavaScript execution result: $result")
+                }
             } else {
-                // Use internal download via HTTP client to go through proxy
+                // Use system download manager for regular URLs
                 downloadFileViaApp(url, userAgent, contentDisposition, mimeType)
             }
         }
