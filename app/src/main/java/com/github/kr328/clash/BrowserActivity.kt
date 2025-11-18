@@ -1,6 +1,8 @@
 package com.github.kr328.clash
 
 import android.app.DownloadManager
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
@@ -880,19 +882,30 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
 
     private fun downloadProxyFile(downloadManager: DownloadManager, proxyUrl: String, userAgent: String, filename: String, downloadDir: File, mimeType: String) {
         try {
+            // 输出代理URL到日志
+            Log.d("BrowserActivity", "代理下载URL: $proxyUrl")
+            
+            // 复制代理URL到剪贴板
+            val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            val clip = ClipData.newPlainText("代理下载URL", proxyUrl)
+            clipboard.setPrimaryClip(clip)
+            
+            // 显示包含代理URL的Toast消息
+            Toast.makeText(this@BrowserActivity, "代理URL已复制到剪贴板:\n$proxyUrl", Toast.LENGTH_LONG).show()
+            
             val request = DownloadManager.Request(Uri.parse(proxyUrl)).apply {
                 setTitle(filename)
-                setDescription("Downloading proxy version")
+                setDescription("Downloading proxy version: $proxyUrl")
                 setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
                 addRequestHeader("User-Agent", userAgent)
                 setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "cfawb/$filename")
                 setAllowedNetworkTypes(DownloadManager.Request.NETWORK_WIFI or DownloadManager.Request.NETWORK_MOBILE)
             }
             downloadManager.enqueue(request)
-            Toast.makeText(this@BrowserActivity, "开始下载代理文件: $filename", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this@BrowserActivity, "开始下载代理文件: $filename\nURL: $proxyUrl", Toast.LENGTH_LONG).show()
         } catch (e: Exception) {
             Log.e("BrowserActivity", "Error downloading proxy file", e)
-            Toast.makeText(this@BrowserActivity, "代理文件下载失败: ${e.message}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this@BrowserActivity, "代理文件下载失败: ${e.message}\nURL: $proxyUrl", Toast.LENGTH_LONG).show()
         }
     }
 }
