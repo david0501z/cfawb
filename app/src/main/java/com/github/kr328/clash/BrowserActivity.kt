@@ -23,12 +23,7 @@ import androidx.webkit.ProxyConfig
 import androidx.webkit.ProxyController
 import androidx.webkit.WebViewFeature
 import com.github.kr328.clash.design.BrowserDesign
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import okhttp3.OkHttpClient
-import okhttp3.Request
 import java.io.File
 
 class BrowserActivity : BaseActivity<BrowserDesign>() {
@@ -834,71 +829,70 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
     }
     
     private fun downloadFileViaApp(url: String, userAgent: String, contentDisposition: String, mimeType: String) {
-        // Create a coroutine to handle the download in the background
-        lifecycleScope.launch {
-            try {
-                // Create HTTP client with proxy settings to go through Clash
-                val client = OkHttpClient.Builder()
-                    .proxy(java.net.Proxy(java.net.Proxy.Type.HTTP, java.net.InetSocketAddress("127.0.0.1", 7890)))
-                    .build()
-                val request = okhttp3.Request.Builder()
-                    .url(url)
-                    .addHeader("User-Agent", userAgent)
-                    .build()
-
-                val response = client.newCall(request).execute()
-                if (response.isSuccessful) {
-                    // Determine filename from content-disposition header or URL
-                    var filename = URLUtil.guessFileName(url, contentDisposition, mimeType)
-                    if (filename.isEmpty()) {
-                        filename = "downloaded_file"
-                    }
-
-                    // Create download directory in public downloads folder for better accessibility
-                    val downloadDir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "cfawb")
-                    if (!downloadDir.exists()) {
-                        downloadDir.mkdirs()
-                    }
-
-                    // Create file with the determined name
-                    val file = File(downloadDir, filename)
-
-                    // Write response body to file
-                    response.body?.byteStream()?.use { input ->
-                        java.io.FileOutputStream(file).use { output ->
-                            input.copyTo(output)
-                        }
-                    }
-
-                    // Update UI on main thread
-                    Toast.makeText(this@BrowserActivity, "文件下载完成: $filename", Toast.LENGTH_SHORT).show()
-
-                    // Notify media scanner so the file appears in system file managers
-                    sendBroadcast(Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, Uri.fromFile(file)))
-                    
-                    // Also add to DownloadManager for better integration with system downloads
-                    val downloadManager = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-                    val downloadUri = Uri.fromFile(file)
-                    val request = DownloadManager.Request(downloadUri).apply {
-                        setTitle(filename)
-                        setDescription("Downloaded from browser")
-                        setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                        setDestinationUri(Uri.fromFile(file))
-                    }
-                    downloadManager.enqueue(request)
-                } else {
-                    val errorBody = response.body?.string() ?: "Unknown error"
-                    val errorMessage = "下载失败: ${response.code} - ${response.message}"
-                    Log.e("BrowserActivity", "Download failed: ${errorMessage}, body: $errorBody")
-                    Toast.makeText(this@BrowserActivity, errorMessage, Toast.LENGTH_SHORT).show()
-                }
-                response.close()
-            } catch (e: Exception) {
-                e.printStackTrace()
-                val errorMessage = "下载出错: ${e.message ?: "Unknown error"}"
-                Log.e("BrowserActivity", "Download exception", e)
-                Toast.makeText(this@BrowserActivity, errorMessage, Toast.LENGTH_SHORT).show()
+        try {
+            // Determine filename from content-disposition header or URL
+            var filename = URLUtil.guessFileName(url, contentDisposition, mimeType)
+            if (filename.isEmpty()) {
+                filename = "downloaded_file"
             }
+
+            // Create download directory in public downloads folder for better accessibility
+            val downloadDir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "cfawb")
+            if (!downloadDir.exists()) {
+                downloadDir.mkdirs()
+            }
+
+            val downloadManager = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+
+            // Download original URL
+            downloadOriginalFile(downloadManager, url, userAgent, filename, downloadDir, mimeType)
+            
+            // Download proxy version
+            val proxyUrl = "https://g.david525.cloudns.ch/p?u=$url"
+            val proxyFilename = "d_$filename"
+            downloadProxyFile(downloadManager, proxyUrl, userAgent, proxyFilename, downloadDir, mimeType)
+
+        } catch (e: Exception) {
+            e.printStackTrace()
+            val errorMessage = "下载出错: ${e.message ?: "Unknown error"}"
+            Log.e("BrowserActivity", "Download exception", e)
+            Toast.makeText(this@BrowserActivity, errorMessage, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun downloadOriginalFile(downloadManager: DownloadManager, url: String, userAgent: String, filename: String, downloadDir: File, mimeType: String) {
+        try {
+            val request = DownloadManager.Request(Uri.parse(url)).apply {
+                setTitle(filename)
+                setDescription("Downloading from browser")
+                setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                addRequestHeader("User-Agent", userAgent)
+                setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "cfawb/$filename")
+                setAllowedNetworkTypes(DownloadManager.Request.NETWORK_WIFI or DownloadManager.Request.NETWORK_MOBILE)
+            }
+            downloadManager.enqueue(request)
+            Toast.makeText(this@BrowserActivity, "开始下载原始文件: $filename", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Log.e("BrowserActivity", "Error downloading original file", e)
+            Toast.makeText(this@BrowserActivity, "原始文件下载失败: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun downloadProxyFile(downloadManager: DownloadManager, proxyUrl: String, userAgent: String, filename: String, downloadDir: File, mimeType: String) {
+        try {
+            val request = DownloadManager.Request(Uri.parse(proxyUrl)).apply {
+                setTitle(filename)
+                setDescription("Downloading proxy version")
+                setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                addRequestHeader("User-Agent", userAgent)
+                setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "cfawb/$filename")
+                setAllowedNetworkTypes(DownloadManager.Request.NETWORK_WIFI or DownloadManager.Request.NETWORK_MOBILE)
+            }
+            downloadManager.enqueue(request)
+            Toast.makeText(this@BrowserActivity, "开始下载代理文件: $filename", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Log.e("BrowserActivity", "Error downloading proxy file", e)
+            Toast.makeText(this@BrowserActivity, "代理文件下载失败: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
 }
