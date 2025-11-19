@@ -302,55 +302,29 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             }
         }
 
-        // Use PopupMenu instead of PopupWindow to avoid view parent issues
+        // 使用布局文件中的menuPopup而不是PopupMenu
         design.menuButton.setOnClickListener {
             try {
-                val popup = android.widget.PopupMenu(this, design.menuButton)
-                val inflater = popup.menuInflater
-                // Since we don't have a menu resource, we'll create menu items programmatically
-                popup.menu.add("关闭").setOnMenuItemClickListener { 
-                    // Close the menu by just returning true
-                    finish()
-                    true
+                Log.d("BrowserActivity", "Menu button clicked, toggling menuPopup visibility")
+                // 切换menuPopup的可见性
+                if (design.menuPopup.visibility == View.GONE) {
+                    design.menuPopup.visibility = View.VISIBLE
+                } else {
+                    design.menuPopup.visibility = View.GONE
                 }
-                popup.menu.add("历史").setOnMenuItemClickListener { 
-                    Log.d("BrowserActivity", "Menu History button clicked")
-                    val intent = Intent(this@BrowserActivity, HistoryManagerActivity::class.java)
-                    startActivity(intent)
-                    true 
-                }
-                popup.menu.add("下载").setOnMenuItemClickListener { 
-                    Log.d("BrowserActivity", "Menu Download button clicked")
-                    val intent = Intent(this@BrowserActivity, DownloadManagerActivity::class.java)
-                    startActivity(intent)
-                    true 
-                }
-                popup.menu.add("返回代理页面").setOnMenuItemClickListener { 
-                    // Return to the main activity (proxy settings) without ending browser
-                    try {
-                        Log.d("BrowserActivity", "Switching to MainActivity without finishing BrowserActivity")
-                        val intent = Intent(this@BrowserActivity, MainActivity::class.java)
-                        // 不结束BrowserActivity，只是切换到后台
-                        intent.flags = Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
-                        startActivity(intent)
-                        // 将BrowserActivity移到后台而不是结束
-                        //moveTaskToBack(false)
-                    } catch (e: Exception) {
-                        Log.e("BrowserActivity", "Error switching to MainActivity", e)
-                    }
-                    true 
-                }
-                
-                popup.show()
             } catch (e: Exception) {
-                Log.e("BrowserActivity", "Error showing popup menu", e)
+                Log.e("BrowserActivity", "Error toggling menu popup", e)
             }
         }
 
         design.closeMenuButton.setOnClickListener {
-            // Close the popup menu by dismissing the popup window
-            // We don't want to finish the activity here, just close the menu
-            // PopupMenu auto-dismisses, no action needed
+            // 关闭menuPopup
+            try {
+                Log.d("BrowserActivity", "Close menu button clicked")
+                design.menuPopup.visibility = View.GONE
+            } catch (e: Exception) {
+                Log.e("BrowserActivity", "Error closing menu popup", e)
+            }
         }
 
         design.settingsMenuButton.setOnClickListener {
