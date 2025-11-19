@@ -21,6 +21,11 @@ class DownloadManagerActivity : BaseActivity<DownloadManagerDesign>() {
 
         initializeDownloadManager()
 
+        // 设置返回按钮点击事件
+        design.root.findViewById<android.widget.ImageButton>(com.github.kr328.clash.design.R.id.backButton)?.setOnClickListener {
+            finish()
+        }
+
         while (isActive) {
             events.receive()
         }
