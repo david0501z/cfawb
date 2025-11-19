@@ -1,6 +1,7 @@
 package com.github.kr328.clash
 
 import android.app.DownloadManager
+import android.app.Activity
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -325,10 +326,18 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                     true 
                 }
                 popup.menu.add("返回代理页面").setOnMenuItemClickListener { 
-                    // Return to the main activity (proxy settings) without minimizing the app
-                    val intent = Intent(this@BrowserActivity, MainActivity::class.java)
-
-                    startActivity(intent)
+                    // Return to the main activity (proxy settings) without ending browser
+                    try {
+                        Log.d("BrowserActivity", "Switching to MainActivity without finishing BrowserActivity")
+                        val intent = Intent(this@BrowserActivity, MainActivity::class.java)
+                        // 不结束BrowserActivity，只是切换到后台
+                        intent.flags = Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+                        startActivity(intent)
+                        // 将BrowserActivity移到后台而不是结束
+                        moveTaskToBack(false)
+                    } catch (e: Exception) {
+                        Log.e("BrowserActivity", "Error switching to MainActivity", e)
+                    }
                     true 
                 }
                 
@@ -347,9 +356,12 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
         design.settingsMenuButton.setOnClickListener {
             Log.d("BrowserActivity", "Settings button clicked")
             try {
-                // Navigate to proxy settings page without closing browser
-                // Just minimize the browser activity to background
-                moveTaskToBack(true)
+                // 切换到MainActivity但不结束BrowserActivity
+                val intent = Intent(this@BrowserActivity, MainActivity::class.java)
+                intent.flags = Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+                startActivity(intent)
+                // 将BrowserActivity移到后台
+                moveTaskToBack(false)
             } catch (e: Exception) {
                 Log.e("BrowserActivity", "Error in settings menu button click", e)
             }
@@ -727,6 +739,33 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 downloadFileViaApp(url, userAgent, contentDisposition, mimeType)
             }
         }
+    }
+    
+    // 添加物理返回键处理
+    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        if (keyCode == KeyEvent.KEYCODE_BACK) {
+            try {
+                Log.d("BrowserActivity", "Back key pressed")
+                // 检查当前WebView是否能后退
+                val currentTab = tabs.getOrNull(currentTabIndex)
+                if (currentTab?.webView?.canGoBack() == true) {
+                    currentTab.webView.goBack()
+                    return true
+                } else {
+                    // 不能后退时，切换到MainActivity但不结束BrowserActivity
+                    Log.d("BrowserActivity", "Cannot go back further, switching to MainActivity")
+                    val intent = Intent(this@BrowserActivity, MainActivity::class.java)
+                    intent.flags = Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+                    startActivity(intent)
+                    // 将BrowserActivity移到后台
+                    moveTaskToBack(false)
+                    return true
+                }
+            } catch (e: Exception) {
+                Log.e("BrowserActivity", "Error handling back key", e)
+            }
+        }
+        return super.onKeyDown(keyCode, event)
     }
 
     private fun setupProxy() {

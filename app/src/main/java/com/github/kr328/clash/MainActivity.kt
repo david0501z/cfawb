@@ -75,6 +75,8 @@ class MainActivity : BaseActivity<MainDesign>() {
                             design.showAbout(queryAppVersionName())
                         MainDesign.Request.OpenBrowser -> {
                              val intent = Intent(this@MainActivity, BrowserActivity::class.java)
+                             // 检查是否已经有BrowserActivity在运行
+                             intent.flags = Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or Intent.FLAG_ACTIVITY_SINGLE_TOP
                              startActivity(intent)
                         }
                     }
