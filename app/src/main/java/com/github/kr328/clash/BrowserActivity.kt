@@ -335,7 +335,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 intent.flags = Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
                 startActivity(intent)
                 // 将BrowserActivity移到后台
-                moveTaskToBack(false)
+                //moveTaskToBack(false)
             } catch (e: Exception) {
                 Log.e("BrowserActivity", "Error in settings menu button click", e)
             }
@@ -1050,7 +1050,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             clipboard.setPrimaryClip(clip)
             
             // 显示包含代理URL的Toast消息
-            Toast.makeText(this@BrowserActivity, "代理URL已复制到剪贴板:\n$proxyUrl", Toast.LENGTH_LONG).show()
+            //Toast.makeText(this@BrowserActivity, "代理URL已复制到剪贴板:\n$proxyUrl", Toast.LENGTH_LONG).show()
             
             val request = DownloadManager.Request(Uri.parse(proxyUrl)).apply {
                 setTitle(filename)
