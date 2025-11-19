@@ -110,7 +110,7 @@ jobs:
       - name: up
         run: |
           # 先找到文件，再上传
-          APK_FILE=$(find app/build/outputs/apk/meta/release/ -name "*.apk" | head -1)
+          APK_FILE=$(find app/build/outputs/apk/meta/release/ -name "*-arm64-v8a-*.apk" | head -1)
           curl -X PUT --data-binary @"$APK_FILE" "${{secrets.UPURL}}"
           
 
