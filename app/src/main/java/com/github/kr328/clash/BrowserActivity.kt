@@ -334,7 +334,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                         intent.flags = Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
                         startActivity(intent)
                         // 将BrowserActivity移到后台而不是结束
-                        moveTaskToBack(false)
+                        //moveTaskToBack(false)
                     } catch (e: Exception) {
                         Log.e("BrowserActivity", "Error switching to MainActivity", e)
                     }
