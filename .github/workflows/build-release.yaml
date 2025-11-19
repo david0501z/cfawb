@@ -101,7 +101,9 @@ jobs:
 
       - name: Release Build
         if: success()
-        run: ./gradlew --no-daemon app:assembleMetaRelease
+        run:  |
+          chmod +x ./gradlew
+          ./gradlew --no-daemon app:assembleMetaRelease
 
       - name: up
         run: |
