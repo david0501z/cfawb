@@ -321,9 +321,9 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             // 关闭menuPopup
             try {
                 Log.d("BrowserActivity", "Close menu button clicked")
-                design.menuPopup.visibility = View.GONE
+                finish()
             } catch (e: Exception) {
-                Log.e("BrowserActivity", "Error closing menu popup", e)
+                Log.e("BrowserActivity", "Error closing BrowserActivity", e)
             }
         }
 
