@@ -63,6 +63,7 @@ jobs:
       
       # If any change found, commit it and push
       - name: Commit and push if changes
+        if: false
         run: |
           changes=$(git diff --name-only origin/main | wc -l)
           if [ $changes -gt 0 ]
