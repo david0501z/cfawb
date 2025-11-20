@@ -1,4 +1,4 @@
-package com.github.kr328.clash
+package com.yourcompany.cfawb
 
 import android.app.DownloadManager
 import android.app.Activity
@@ -26,7 +26,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.webkit.ProxyConfig
 import androidx.webkit.ProxyController
 import androidx.webkit.WebViewFeature
-import com.github.kr328.clash.design.BrowserDesign
+import com.yourcompany.cfawb.design.BrowserDesign
 import kotlinx.coroutines.isActive
 import java.io.File
 
@@ -279,28 +279,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             }
         }
 
-        // Use downloadMenuButton instead of downloadButton which doesn't exist
-        design.downloadMenuButton.setOnClickListener {
-            Log.d("BrowserActivity", "Download button clicked")
-            try {
-                // Open download management activity
-                val intent = android.content.Intent(this, DownloadManagerActivity::class.java)
-                startActivity(intent)
-            } catch (e: Exception) {
-                Log.e("BrowserActivity", "Error in download menu button click", e)
-            }
-        }
-
-        design.historyMenuButton.setOnClickListener {
-            Log.d("BrowserActivity", "History button clicked")
-            try {
-                // Open history management activity
-                val intent = android.content.Intent(this, HistoryManagerActivity::class.java)
-                startActivity(intent)
-            } catch (e: Exception) {
-                Log.e("BrowserActivity", "Error in history menu button click", e)
-            }
-        }
+        // Removed downloadMenuButton and historyMenuButton listeners as buttons are removed from layout
 
         // 使用布局文件中的menuPopup而不是PopupMenu
         design.menuButton.setOnClickListener {
@@ -317,25 +296,34 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             }
         }
 
+        // 点击菜单外部区域关闭菜单
+        design.coordinatorLayout.setOnClickListener {
+            if (design.menuPopup.visibility == View.VISIBLE) {
+                design.menuPopup.visibility = View.GONE
+            }
+        }
+
         design.closeMenuButton.setOnClickListener {
             // 关闭menuPopup
             try {
                 Log.d("BrowserActivity", "Close menu button clicked")
-                finish()
+                design.menuPopup.visibility = View.GONE
             } catch (e: Exception) {
-                Log.e("BrowserActivity", "Error closing BrowserActivity", e)
+                Log.e("BrowserActivity", "Error closing menu popup", e)
             }
         }
 
         design.settingsMenuButton.setOnClickListener {
             Log.d("BrowserActivity", "Settings button clicked")
             try {
+                // Close menu popup first
+                design.menuPopup.visibility = View.GONE
                 // 切换到MainActivity但不结束BrowserActivity
                 val intent = Intent(this@BrowserActivity, MainActivity::class.java)
                 intent.flags = Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
                 startActivity(intent)
                 // 将BrowserActivity移到后台
-                //moveTaskToBack(false)
+                moveTaskToBack(false)
             } catch (e: Exception) {
                 Log.e("BrowserActivity", "Error in settings menu button click", e)
             }
@@ -1050,7 +1038,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             clipboard.setPrimaryClip(clip)
             
             // 显示包含代理URL的Toast消息
-            //Toast.makeText(this@BrowserActivity, "代理URL已复制到剪贴板:\n$proxyUrl", Toast.LENGTH_LONG).show()
+            Toast.makeText(this@BrowserActivity, "代理URL已复制到剪贴板:\n$proxyUrl", Toast.LENGTH_LONG).show()
             
             val request = DownloadManager.Request(Uri.parse(proxyUrl)).apply {
                 setTitle(filename)
