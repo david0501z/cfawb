@@ -5,10 +5,11 @@
     <data>
         <variable
             name="self"
-            type="com.github.kr328.clash.design.BrowserDesign" />
+            type="com.yourcompany.cfawb.design.BrowserDesign" />
     </data>
 
     <androidx.coordinatorlayout.widget.CoordinatorLayout
+        android:id="@+id/coordinatorLayout"
         android:layout_width="match_parent"
         android:layout_height="match_parent">
 
@@ -150,27 +151,7 @@
                     android:textAllCaps="false"
                     android:textColor="@android:color/black" />
 
-                <Button
-                    android:id="@+id/historyMenuButton"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:background="?attr/selectableItemBackground"
-                    android:gravity="start|center_vertical"
-                    android:padding="12dp"
-                    android:text="@string/history"
-                    android:textAllCaps="false"
-                    android:textColor="@android:color/black" />
 
-                <Button
-                    android:id="@+id/downloadMenuButton"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:background="?attr/selectableItemBackground"
-                    android:gravity="start|center_vertical"
-                    android:padding="12dp"
-                    android:text="@string/download"
-                    android:textAllCaps="false"
-                    android:textColor="@android:color/black" />
 
                 <Button
                     android:id="@+id/settingsMenuButton"
