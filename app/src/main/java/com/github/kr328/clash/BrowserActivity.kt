@@ -1,4 +1,4 @@
-package com.github.kr328.clash.design
+package com.github.kr328.clash
 
 import android.app.DownloadManager
 import android.app.Activity
