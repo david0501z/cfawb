@@ -1,4 +1,4 @@
-package com.github.kr328.clash.design
+package com.yourcompany.cfawb.design
 
 import android.content.Context
 import android.view.View
@@ -10,9 +10,9 @@ import android.widget.ImageButton
 import android.widget.ProgressBar
 import android.widget.LinearLayout
 import android.widget.TextView
-import com.github.kr328.clash.design.databinding.DesignBrowserBinding
-import com.github.kr328.clash.design.util.layoutInflater
-import com.github.kr328.clash.design.util.root
+import com.yourcompany.cfawb.design.databinding.DesignBrowserBinding
+import com.yourcompany.cfawb.design.util.layoutInflater
+import com.yourcompany.cfawb.design.util.root
 
 class BrowserDesign(context: Context) : Design<BrowserDesign.Request>(context) {
     enum class Request {
@@ -70,14 +70,13 @@ class BrowserDesign(context: Context) : Design<BrowserDesign.Request>(context) {
     val closeMenuButton: android.widget.Button
         get() = binding.closeMenuButton
 
-    val historyMenuButton: android.widget.Button
-        get() = binding.historyMenuButton
-
-    val downloadMenuButton: android.widget.Button
-        get() = binding.downloadMenuButton
+    // Removed historyMenuButton and downloadMenuButton as they are deleted from layout
 
     val settingsMenuButton: android.widget.Button
         get() = binding.settingsMenuButton
+
+    val coordinatorLayout: androidx.coordinatorlayout.widget.CoordinatorLayout
+        get() = binding.coordinatorLayout
 
     val tabsCountButton: ImageButton
         get() = binding.tabsCountButton
