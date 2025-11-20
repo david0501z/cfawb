@@ -1,4 +1,4 @@
-package com.yourcompany.cfawb
+package com.github.kr328.clash.design
 
 import android.app.DownloadManager
 import android.app.Activity
@@ -26,7 +26,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.webkit.ProxyConfig
 import androidx.webkit.ProxyController
 import androidx.webkit.WebViewFeature
-import com.yourcompany.cfawb.design.BrowserDesign
+import com.github.kr328.clash.design.BrowserDesign
 import kotlinx.coroutines.isActive
 import java.io.File
 
@@ -304,12 +304,12 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
         }
 
         design.closeMenuButton.setOnClickListener {
-            // 关闭menuPopup
+            // 关闭浏览器
             try {
-                Log.d("BrowserActivity", "Close menu button clicked")
-                design.menuPopup.visibility = View.GONE
+                Log.d("BrowserActivity", "Close browser")
+                finish()
             } catch (e: Exception) {
-                Log.e("BrowserActivity", "Error closing menu popup", e)
+                Log.e("BrowserActivity", "Error closing", e)
             }
         }
 
@@ -322,8 +322,6 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 val intent = Intent(this@BrowserActivity, MainActivity::class.java)
                 intent.flags = Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
                 startActivity(intent)
-                // 将BrowserActivity移到后台
-                moveTaskToBack(false)
             } catch (e: Exception) {
                 Log.e("BrowserActivity", "Error in settings menu button click", e)
             }
@@ -1038,7 +1036,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             clipboard.setPrimaryClip(clip)
             
             // 显示包含代理URL的Toast消息
-            Toast.makeText(this@BrowserActivity, "代理URL已复制到剪贴板:\n$proxyUrl", Toast.LENGTH_LONG).show()
+            //Toast.makeText(this@BrowserActivity, "代理URL已复制到剪贴板:\n$proxyUrl", Toast.LENGTH_LONG).show()
             
             val request = DownloadManager.Request(Uri.parse(proxyUrl)).apply {
                 setTitle(filename)
@@ -1049,7 +1047,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 setAllowedNetworkTypes(DownloadManager.Request.NETWORK_WIFI or DownloadManager.Request.NETWORK_MOBILE)
             }
             downloadManager.enqueue(request)
-            Toast.makeText(this@BrowserActivity, "开始下载代理文件: $filename\nURL: $proxyUrl", Toast.LENGTH_LONG).show()
+            //Toast.makeText(this@BrowserActivity, "开始下载代理文件: $filename\nURL: $proxyUrl", Toast.LENGTH_LONG).show()
         } catch (e: Exception) {
             Log.e("BrowserActivity", "Error downloading proxy file", e)
             Toast.makeText(this@BrowserActivity, "代理文件下载失败: ${e.message}\nURL: $proxyUrl", Toast.LENGTH_LONG).show()
