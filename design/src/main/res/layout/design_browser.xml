@@ -5,7 +5,7 @@
     <data>
         <variable
             name="self"
-            type="com.yourcompany.cfawb.design.BrowserDesign" />
+            type="com.github.kr328.clash.design.BrowserDesign" />
     </data>
 
     <androidx.coordinatorlayout.widget.CoordinatorLayout
