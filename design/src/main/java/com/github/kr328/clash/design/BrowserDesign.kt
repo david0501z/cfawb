@@ -1,4 +1,4 @@
-package com.yourcompany.cfawb.design
+package com.github.kr328.clash.design
 
 import android.content.Context
 import android.view.View
@@ -10,9 +10,9 @@ import android.widget.ImageButton
 import android.widget.ProgressBar
 import android.widget.LinearLayout
 import android.widget.TextView
-import com.yourcompany.cfawb.design.databinding.DesignBrowserBinding
-import com.yourcompany.cfawb.design.util.layoutInflater
-import com.yourcompany.cfawb.design.util.root
+import com.github.kr328.clash.design.databinding.DesignBrowserBinding
+import com.github.kr328.clash.design.util.layoutInflater
+import com.github.kr328.clash.design.util.root
 
 class BrowserDesign(context: Context) : Design<BrowserDesign.Request>(context) {
     enum class Request {
