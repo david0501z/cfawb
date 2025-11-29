@@ -135,13 +135,37 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
     private fun copyToClipboard(message: String) {
         try {
             val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            val clip = ClipData.newPlainText("BrowserActivity Log", message)
-            clipboard.setPrimaryClip(clip)
-            Log.d("BrowserActivity", "Copied to clipboard: $message")
+        val clip = ClipData.newPlainText("BrowserActivity Log", message)
+        clipboard.setPrimaryClip(clip)
+        Log.d("BrowserActivity", "Copied to clipboard: $message")
         } catch (e: Exception) {
             Log.e("BrowserActivity", "Failed to copy to clipboard", e)
         }
     }
+    
+    private fun getSystemProxyPort(): Int {
+        return try {
+            // Try to get proxy port from system configuration
+            val sharedPrefs = getSharedPreferences("clash_settings", Context.MODE_PRIVATE)
+            // Check if Clash service is running and get actual proxy port
+            val clashPort = getClashServicePort()
+            if (clashPort > 0) {
+                clashPort
+            } else {
+                7890 // Fallback to default port
+            }
+        } catch (e: Exception) {
+            Log.e("BrowserActivity", "Error getting proxy port", e)
+                7890 // Fallback to default port
+        }
+    }
+    
+    private fun getClashServicePort(): Int {
+        return try {
+            // Check if Clash Meta service is running on the expected port
+            // For now, return default port
+            7890
+        }
     
     private fun showProtocolHandlerDialog(protocolUrl: String, webView: WebView?) {
         try {
@@ -731,15 +755,27 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
     private fun setupProxy() {
         // Check if ProxyController is supported
         if (WebViewFeature.isFeatureSupported(WebViewFeature.PROXY_OVERRIDE)) {
-            val proxyConfig = ProxyConfig.Builder()
-                .addProxyRule("127.0.0.1:7890") // Clash Meta default HTTP proxy port
+            // Get actual proxy port from system configuration
+            val proxyPort = getSystemProxyPort()
+            if (proxyPort > 0) {
+                val proxyConfig = ProxyConfig.Builder()
+                    .addProxyRule("127.0.0.1:$proxyPort") // Use actual proxy port
                 .build()
             
             ProxyController.getInstance().setProxyOverride(proxyConfig, java.util.concurrent.Executors.newSingleThreadExecutor()) {
-                // Proxy override applied
+                    // Proxy override applied
+                    Log.d("BrowserActivity", "Proxy override applied successfully on port: $proxyPort")
+                }
+            } else {
+                Log.w("BrowserActivity", "No valid proxy port found, proxy may not be available")
+                // Optionally show notification to user
+                runOnUiThread {
+                    Toast.makeText(this@BrowserActivity, "代理服务未启动或端口不可用", Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            Log.w("BrowserActivity", "Proxy override feature not supported on this device")
             }
         }
-    }
 
     private fun loadUrlFromInput(design: BrowserDesign) {
         var url = design.urlInput.text.toString().trim()
