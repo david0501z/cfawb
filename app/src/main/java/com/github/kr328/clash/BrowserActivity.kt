@@ -145,14 +145,14 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
     
     private fun getSystemProxyPort(): Int {
         return try {
-            // Try to get proxy port from system configuration
-            val sharedPrefs = getSharedPreferences("clash_settings", Context.MODE_PRIVATE)
-            // Check if Clash service is running and get actual proxy port
-            val clashPort = getClashServicePort()
-            if (clashPort > 0) {
-                clashPort
+            // Get actual proxy port from Clash service
+            val remote = Remote.service
+            if (remote.isBound) {
+                val config = remote.clashManager.queryConfiguration()
+                config.mixedPort ?: 7890
             } else {
-                7890 // Fallback to default port
+                Log.w("BrowserActivity", "Clash service not bound, using default port")
+                7890
             }
         } catch (e: Exception) {
             Log.e("BrowserActivity", "Error getting proxy port", e)
@@ -162,12 +162,18 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
     
     private fun getClashServicePort(): Int {
         return try {
-            // Check if Clash Meta service is running on the expected port
-            // For now, return default port
-            7890
+            // Check if Clash service is running
+            val remote = Remote.service
+            if (remote.isBound) {
+                val config = remote.clashManager.queryConfiguration()
+                config.mixedPort ?: 7890
+            } else {
+                Log.w("BrowserActivity", "Clash service not running")
+                -1
+            }
         } catch (e: Exception) {
             Log.e("BrowserActivity", "Error getting Clash service port", e)
-            7890
+            -1
         }
     }
     
