@@ -27,6 +27,7 @@ import androidx.webkit.ProxyConfig
 import androidx.webkit.ProxyController
 import androidx.webkit.WebViewFeature
 import com.github.kr328.clash.design.BrowserDesign
+import com.github.kr328.clash.remote.Remote
 import kotlinx.coroutines.isActive
 import java.io.File
 
