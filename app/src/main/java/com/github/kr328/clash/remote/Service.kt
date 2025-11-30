@@ -15,6 +15,10 @@ import java.util.concurrent.TimeUnit
 
 class Service(private val context: Application, val crashed: () -> Unit) {
     val remote = Resource<IRemoteService>()
+    val isBound: Boolean
+        get() = remote.get() != null
+    val clashManager: IClashManager?
+        get() = remote.get()?.clash()
 
     private val connection = object : ServiceConnection {
         private var lastCrashed: Long = -1
