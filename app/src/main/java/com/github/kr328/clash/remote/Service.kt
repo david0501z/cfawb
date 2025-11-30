@@ -8,6 +8,7 @@ import android.os.IBinder
 import com.github.kr328.clash.common.log.Log
 import com.github.kr328.clash.common.util.intent
 import com.github.kr328.clash.service.RemoteService
+import com.github.kr328.clash.service.remote.IClashManager
 import com.github.kr328.clash.service.remote.IRemoteService
 import com.github.kr328.clash.service.remote.unwrap
 import com.github.kr328.clash.util.unbindServiceSilent
@@ -17,8 +18,13 @@ class Service(private val context: Application, val crashed: () -> Unit) {
     val remote = Resource<IRemoteService>()
     val isBound: Boolean
         get() = remote.get() != null
-    val clashManager: IClashManager?
-        get() = remote.get()?.clash()
+    suspend fun getClashManager(): IClashManager? {
+        return try {
+            remote.get()?.clash()
+        } catch (e: Exception) {
+            null
+        }
+    }
 
     private val connection = object : ServiceConnection {
         private var lastCrashed: Long = -1
