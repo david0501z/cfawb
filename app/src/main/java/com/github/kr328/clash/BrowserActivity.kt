@@ -56,13 +56,15 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                     contentDisposition.substring(startIndex, endIndex).replace("\"", "")
                 } else {
                     contentDisposition.substring(startIndex).replace("\"", "")
-                }
-            }
+        }
+    }
+}
             
             // Save data URL to file
             saveDataUrlToFile(dataUrl, filename, mimeType)
         }
     }
+}
     
     private fun saveDataUrlToFile(dataUrl: String, filename: String, mimeType: String) {
         try {
@@ -128,8 +130,9 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             copyToClipboard(errorMessage)
             runOnUiThread {
                 Toast.makeText(this, "$errorMessage\n错误日志已复制到剪贴板", Toast.LENGTH_LONG).show()
-            }
         }
+    }
+}
     }
     
     private fun copyToClipboard(message: String) {
@@ -142,6 +145,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             Log.e("BrowserActivity", "Failed to copy to clipboard", e)
         }
     }
+}
     
     private fun getSystemProxyPort(): Int {
         return try {
@@ -159,6 +163,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 7890 // Fallback to default port
         }
     }
+}
     
     private fun getClashServicePort(): Int {
         return try {
@@ -194,6 +199,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             Log.e("BrowserActivity", "Error showing protocol handler dialog", e)
         }
     }
+}
     
     private fun getAppNameForProtocol(protocolUrl: String): String {
         return when {
@@ -209,6 +215,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             else -> "相应"
         }
     }
+}
     
     private fun tryOpenExternalApp(protocolUrl: String) {
         try {
@@ -228,14 +235,16 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 Log.w("BrowserActivity", "No app found to handle protocol: $protocolUrl")
                 runOnUiThread {
                     Toast.makeText(this@BrowserActivity, "未找到能处理此链接的应用", Toast.LENGTH_LONG).show()
-                }
-            }
+        }
+    }
+}
         } catch (e: Exception) {
             Log.e("BrowserActivity", "Error opening external app", e)
             runOnUiThread {
                 Toast.makeText(this@BrowserActivity, "打开应用失败: ${e.message}", Toast.LENGTH_LONG).show()
-            }
         }
+    }
+}
     }
 
     private val tabs = mutableListOf<BrowserTab>()
@@ -262,8 +271,9 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 }
             } catch (e: Exception) {
                 Log.e("BrowserActivity", "Error in back button click", e)
-            }
         }
+    }
+}
 
         design.forwardButton.setOnClickListener {
             try {
@@ -273,8 +283,9 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 }
             } catch (e: Exception) {
                 Log.e("BrowserActivity", "Error in forward button click", e)
-            }
         }
+    }
+}
 
         design.reloadButton.setOnClickListener {
             try {
@@ -292,16 +303,18 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 }
             } catch (e: Exception) {
                 Log.e("BrowserActivity", "Error in reload button click", e)
-            }
         }
+    }
+}
 
         design.newTabButton.setOnClickListener {
             try {
                 createNewTab(design, "https://www.google.com")
             } catch (e: Exception) {
                 Log.e("BrowserActivity", "Error in new tab button click", e)
-            }
         }
+    }
+}
 
         // Removed downloadMenuButton and historyMenuButton listeners as buttons are removed from layout
 
@@ -317,15 +330,17 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 }
             } catch (e: Exception) {
                 Log.e("BrowserActivity", "Error toggling menu popup", e)
-            }
         }
+    }
+}
 
         // 点击菜单外部区域关闭菜单
         design.coordinatorLayout.setOnClickListener {
             if (design.menuPopup.visibility == View.VISIBLE) {
                 design.menuPopup.visibility = View.GONE
-            }
         }
+    }
+}
 
         design.closeMenuButton.setOnClickListener {
             // 关闭浏览器
@@ -334,8 +349,9 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 finish()
             } catch (e: Exception) {
                 Log.e("BrowserActivity", "Error closing", e)
-            }
         }
+    }
+}
 
         design.settingsMenuButton.setOnClickListener {
             Log.d("BrowserActivity", "Settings button clicked")
@@ -348,8 +364,9 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 startActivity(intent)
             } catch (e: Exception) {
                 Log.e("BrowserActivity", "Error in settings menu button click", e)
-            }
         }
+    }
+}
 
         design.tabsCountButton.setOnClickListener {
             try {
@@ -357,8 +374,9 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 showTabsManagementPopup(design)
             } catch (e: Exception) {
                 Log.e("BrowserActivity", "Error in tabs count button click", e)
-            }
         }
+    }
+}
 
         design.urlInput.setOnEditorActionListener { _, actionId, event ->
             try {
@@ -373,8 +391,9 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             } catch (e: Exception) {
                 Log.e("BrowserActivity", "Error in URL input action", e)
                 false
-            }
         }
+    }
+}
 
         // Add keyboard visibility listener - adjust layout when keyboard appears
         val rootView = findViewById<android.view.View>(android.R.id.content)
@@ -397,14 +416,16 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                     val layoutParams = bottomNav.layoutParams as android.view.ViewGroup.MarginLayoutParams
                     layoutParams.bottomMargin = 0
                     bottomNav.layoutParams = layoutParams
-                }
-            }
+        }
+    }
+}
         })
 
         while (isActive) {
             events.receive()
         }
     }
+}
 
     private fun createNewTab(design: BrowserDesign, url: String): BrowserTab {
         return try {
@@ -457,8 +478,9 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                     switchToTab(design, tabIndex)
                 } catch (e: Exception) {
                     Log.e("BrowserActivity", "Error switching tab", e)
-                }
-            }
+        }
+    }
+}
 
             // Set click listener for tab closing - capture tabIndex in a final variable to avoid closure issues
             val closeTabIndex = tabIndex
@@ -467,8 +489,9 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                     closeTab(design, closeTabIndex)
                 } catch (e: Exception) {
                     Log.e("BrowserActivity", "Error closing tab", e)
-                }
-            }
+        }
+    }
+}
 
             // Load URL
             webView.loadUrl(url)
@@ -489,6 +512,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             tab
         }
     }
+}
 
     private fun switchToTab(design: BrowserDesign, index: Int) {
         try {
@@ -519,6 +543,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             Log.e("BrowserActivity", "Error switching tab", e)
         }
     }
+}
 
     private fun closeTab(design: BrowserDesign, index: Int) {
         try {
@@ -554,6 +579,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             Log.e("BrowserActivity", "Error closing tab", e)
         }
     }
+}
 
     private fun setupWebView(webView: WebView) {
         webView.settings.apply {
@@ -585,8 +611,9 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                     } catch (e: Exception) {
                         Log.e("BrowserActivity", "Error processing baiduboxapp URL", e)
                         return true
-                    }
-                }
+        }
+    }
+}
                 
                 return false
             }
@@ -604,8 +631,9 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                     (tabs[currentIndex].tabView as TextView).text = title
                     tabs[currentIndex].title = title
                     tabs[currentIndex].url = url ?: ""
-                }
-            }
+        }
+    }
+}
 
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
@@ -624,8 +652,9 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                     // Save to history
                     if (url != null) {
                         saveToHistory(title, url)
-                    }
-                }
+        }
+    }
+}
             }
 
             override fun onReceivedError(
@@ -639,8 +668,9 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 
                 val url = request?.url?.toString()
                 Log.e("BrowserActivity", "Loading error for URL: $url, error: ${error?.description}")
-            }
         }
+    }
+}
 
         // Enable file upload support
         webView.webChromeClient = object : WebChromeClient() {
@@ -674,8 +704,9 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 }
                 
                 return true
-            }
         }
+    }
+}
         
         // Enable download support
         webView.setDownloadListener { url, userAgent, contentDisposition, mimeType, contentLength ->
@@ -721,8 +752,9 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             } else {
                 // Use system download manager for regular URLs
                 downloadFileViaApp(url, userAgent, contentDisposition, mimeType)
-            }
         }
+    }
+}
     }
     
     // 添加物理返回键处理
@@ -747,8 +779,9 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 }
             } catch (e: Exception) {
                 Log.e("BrowserActivity", "Error handling back key", e)
-            }
         }
+    }
+}
         return super.onKeyDown(keyCode, event)
     }
 
@@ -774,8 +807,9 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             }
         } else {
             Log.w("BrowserActivity", "Proxy override feature not supported on this device")
-            }
         }
+    }
+}
 
     private fun loadUrlFromInput(design: BrowserDesign) {
         var url = design.urlInput.text.toString().trim()
@@ -799,6 +833,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             imm.hideSoftInputFromWindow(design.urlInput.windowToken, 0)
         }
     }
+}
 
     private fun saveToHistory(title: String, url: String) {
         // Save to history using SharedPreferences
@@ -855,6 +890,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             url
         }
     }
+}
 
     private fun updateTabsCount(design: BrowserDesign) {
         val tabCount = tabs.size
@@ -885,8 +921,9 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                             switchToTab(design, index)
                         } catch (e: Exception) {
                             Log.e("BrowserActivity", "Error switching tab from popup", e)
-                        }
-                    }
+        }
+    }
+}
                 }
                 
                 val tabTitle = TextView(this).apply {
@@ -908,14 +945,16 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                             closeTab(design, index)
                         } catch (e: Exception) {
                             Log.e("BrowserActivity", "Error closing tab from popup", e)
-                        }
-                    }
+        }
+    }
+}
                     setOnTouchListener { v, event ->
                         // Stop touch event propagation to prevent switching to the tab when closing
                         event.action = android.view.MotionEvent.ACTION_CANCEL
                         false
-                    }
-                }
+        }
+    }
+}
                 
                 tabView.addView(tabTitle)
                 tabView.addView(closeButton)
@@ -948,6 +987,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             Log.e("BrowserActivity", "Error showing tabs management popup", e)
         }
     }
+}
 
     override fun onBackPressed() {
         try {
@@ -962,6 +1002,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             super.onBackPressed()
         }
     }
+}
     
     override fun onNewIntent(intent: android.content.Intent?) {
         super.onNewIntent(intent)
@@ -977,6 +1018,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             currentTab.webView.requestFocus()
         }
     }
+}
     
     override fun onResume() {
         super.onResume()
@@ -1007,8 +1049,9 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 // User cancelled the file selection
                 filePathCallback?.onReceiveValue(null)
                 filePathCallback = null
-            }
         }
+    }
+}
     }
     
     private fun downloadFileViaApp(url: String, userAgent: String, contentDisposition: String, mimeType: String) {
@@ -1042,6 +1085,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             Toast.makeText(this@BrowserActivity, errorMessage, Toast.LENGTH_SHORT).show()
         }
     }
+}
 
     private fun downloadOriginalFile(downloadManager: DownloadManager, url: String, userAgent: String, filename: String, downloadDir: File, mimeType: String) {
         try {
@@ -1060,6 +1104,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             Toast.makeText(this@BrowserActivity, "原始文件下载失败: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
+}
 
     private fun downloadProxyFile(downloadManager: DownloadManager, proxyUrl: String, userAgent: String, filename: String, downloadDir: File, mimeType: String) {
         try {
@@ -1089,4 +1134,5 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             Toast.makeText(this@BrowserActivity, "代理文件下载失败: ${e.message}\nURL: $proxyUrl", Toast.LENGTH_LONG).show()
         }
     }
+}
 }
