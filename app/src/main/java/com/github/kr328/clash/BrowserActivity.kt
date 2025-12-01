@@ -50,7 +50,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
     /**
      * 浏览器专用日志记录器 - 完全集成到标准日志系统
      */
-    private inner class BrowserLogger {
+    private open inner class BrowserLogger {
         private val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.getDefault())
         private val logFile: File
         
@@ -100,10 +100,10 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             }
         }
         
-        fun debug(message: String) = writeLog("DEBUG", message)
-        fun info(message: String) = writeLog("INFO", message)
-        fun warn(message: String) = writeLog("WARN", message)
-        fun error(message: String, throwable: Throwable? = null) {
+        open fun debug(message: String) = writeLog("DEBUG", message)
+        open fun info(message: String) = writeLog("INFO", message)
+        open fun warn(message: String) = writeLog("WARN", message)
+        open fun error(message: String, throwable: Throwable? = null) {
             val fullMessage = if (throwable != null) {
                 "$message - ${throwable.message}"
             } else {
@@ -112,7 +112,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             writeLog("ERROR", fullMessage)
         }
         
-        fun logProxyEvent(event: String, details: Map<String, Any> = emptyMap()) {
+        open fun logProxyEvent(event: String, details: Map<String, Any> = emptyMap()) {
             val detailStr = if (details.isNotEmpty()) {
                 details.entries.joinToString(", ") { "${it.key}=${it.value}" }
             } else {
@@ -121,7 +121,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             writeLog("PROXY", "$event${if (detailStr.isNotEmpty()) " - $detailStr" else ""}")
         }
         
-        fun logWebviewEvent(action: String, url: String? = null, details: String = "") {
+        open fun logWebviewEvent(action: String, url: String? = null, details: String = "") {
             val message = StringBuilder().apply {
                 append("WEBVIEW_$action")
                 url?.let { append(" URL: $it") }
@@ -165,6 +165,41 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             val currentTime = Date()
             val fileName = "clash-${currentTime.time}.log"
             return activity.logsDir.resolve(fileName)
+        }
+    }
+    
+    /**
+     * 创建备用的简单日志记录器（当文件日志失败时使用）
+     */
+    private fun createFallbackLogger(): BrowserLogger {
+        return object : BrowserLogger() {
+            override fun debug(message: String) {
+                ClashLog.d("[FALLBACK_BROWSER] $message")
+            }
+            
+            override fun info(message: String) {
+                ClashLog.i("[FALLBACK_BROWSER] $message")
+            }
+            
+            override fun warn(message: String) {
+                ClashLog.w("[FALLBACK_BROWSER] $message")
+            }
+            
+            override fun error(message: String, throwable: Throwable?) {
+                if (throwable != null) {
+                    ClashLog.e("[FALLBACK_BROWSER] $message", throwable)
+                } else {
+                    ClashLog.e("[FALLBACK_BROWSER] $message")
+                }
+            }
+            
+            override fun logProxyEvent(event: String, details: Map<String, Any>) {
+                ClashLog.i("[FALLBACK_PROXY] $event - $details")
+            }
+            
+            override fun logWebviewEvent(action: String, url: String?, details: String) {
+                ClashLog.i("[FALLBACK_WEBVIEW] $action - URL: $url - $details")
+            }
         }
     }
     
@@ -412,19 +447,32 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
     private var filePathCallback: ValueCallback<Array<Uri>?>? = null
 
     override suspend fun main() {
-        // Initialize browser logger
-        browserLogger = BrowserLogger()
-        browserLogger.info("=== BROWSER ACTIVITY LIFECYCLE: START ===")
-        browserLogger.info("BrowserActivity starting...")
-        browserLogger.info("Device info: ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}, Android ${android.os.Build.VERSION.RELEASE}")
-        browserLogger.info("WebView version: ${android.webkit.WebView.getCurrentWebViewPackage()?.versionName ?: "Unknown"}")
+        // 简化的初始化流程，优先保证稳定性
+        try {
+            // 尝试初始化日志记录器
+            browserLogger = BrowserLogger()
+            ClashLog.i("BrowserActivity: Logger initialized successfully")
+        } catch (e: Exception) {
+            ClashLog.e("BrowserActivity: Failed to initialize logger, using fallback", e)
+            browserLogger = createFallbackLogger()
+        }
+        
+        try {
+            browserLogger.info("=== BROWSER ACTIVITY START ===")
+            browserLogger.info("Starting browser activity...")
+        } catch (e: Exception) {
+            ClashLog.e("BrowserActivity: Logging failed during startup", e)
+        }
         
         val design = BrowserDesign(this)
-
         setContentDesign(design)
 
-        browserLogger.debug("Setting up proxy...")
-        setupProxy()
+        try {
+            browserLogger.debug("Setting up proxy...")
+            setupProxy()
+        } catch (e: Exception) {
+            ClashLog.e("BrowserActivity: Proxy setup failed", e)
+        }
 
         // Create first tab - check if we have a URL from the intent
         val initialUrl = intent.getStringExtra("url") ?: "https://www.google.com"
