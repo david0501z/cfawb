@@ -455,7 +455,10 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             setContentDesign(design)
             ClashLog.i("BrowserActivity: Design set successfully")
             
-            // 先不启用日志记录器和代理设置，确保基本功能正常
+            // 启用代理设置以解决网络连接问题
+            setupProxy()
+            ClashLog.i("BrowserActivity: Proxy setup initiated")
+            
             // Create first tab - check if we have a URL from the intent
             val initialUrl = intent.getStringExtra("url") ?: "https://www.google.com"
             createNewTabSimple(design, initialUrl)
