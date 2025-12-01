@@ -447,36 +447,24 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
     private var filePathCallback: ValueCallback<Array<Uri>?>? = null
 
     override suspend fun main() {
-        // 简化的初始化流程，优先保证稳定性
-        try {
-            // 尝试初始化日志记录器
-            browserLogger = BrowserLogger()
-            ClashLog.i("BrowserActivity: Logger initialized successfully")
-        } catch (e: Exception) {
-            ClashLog.e("BrowserActivity: Failed to initialize logger, using fallback", e)
-            browserLogger = createFallbackLogger()
-        }
+        // 最小化初始化，逐步排查问题
+        ClashLog.i("BrowserActivity: Starting main()")
         
-        try {
-            browserLogger.info("=== BROWSER ACTIVITY START ===")
-            browserLogger.info("Starting browser activity...")
+        val design = try {
+            val design = BrowserDesign(this)
+            setContentDesign(design)
+            ClashLog.i("BrowserActivity: Design set successfully")
+            
+            // 先不启用日志记录器和代理设置，确保基本功能正常
+            // Create first tab - check if we have a URL from the intent
+            val initialUrl = intent.getStringExtra("url") ?: "https://www.google.com"
+            createNewTab(design, initialUrl)
+            ClashLog.i("BrowserActivity: Tab created successfully")
+            design
         } catch (e: Exception) {
-            ClashLog.e("BrowserActivity: Logging failed during startup", e)
+            ClashLog.e("BrowserActivity: Error in main()", e)
+            throw e
         }
-        
-        val design = BrowserDesign(this)
-        setContentDesign(design)
-
-        try {
-            browserLogger.debug("Setting up proxy...")
-            setupProxy()
-        } catch (e: Exception) {
-            ClashLog.e("BrowserActivity: Proxy setup failed", e)
-        }
-
-        // Create first tab - check if we have a URL from the intent
-        val initialUrl = intent.getStringExtra("url") ?: "https://www.google.com"
-        createNewTab(design, initialUrl)
 
         // Setup UI event listeners
         design.backButton.setOnClickListener {
