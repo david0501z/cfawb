@@ -13,11 +13,16 @@ import com.github.kr328.clash.service.remote.IRemoteService
 import com.github.kr328.clash.service.remote.unwrap
 import com.github.kr328.clash.util.unbindServiceSilent
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.runBlocking
 
 class Service(private val context: Application, val crashed: () -> Unit) {
     val remote = Resource<IRemoteService>()
+    
+    @Volatile
+    private var _isBound: Boolean = false
+    
     val isBound: Boolean
-        get() = remote.get() != null
+        get() = _isBound
     suspend fun getClashManager(): IClashManager? {
         return try {
             remote.get()?.clash()
@@ -31,10 +36,12 @@ class Service(private val context: Application, val crashed: () -> Unit) {
 
         override fun onServiceConnected(name: ComponentName?, service: IBinder) {
             remote.set(service.unwrap(IRemoteService::class))
+            _isBound = true
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
             remote.set(null)
+            _isBound = false
 
             if (System.currentTimeMillis() - lastCrashed < TOGGLE_CRASHED_INTERVAL) {
                 unbind()
@@ -61,6 +68,7 @@ class Service(private val context: Application, val crashed: () -> Unit) {
         context.unbindServiceSilent(connection)
 
         remote.set(null)
+        _isBound = false
     }
 
     companion object {
