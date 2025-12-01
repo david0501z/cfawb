@@ -29,6 +29,7 @@ import androidx.webkit.WebViewFeature
 import com.github.kr328.clash.design.BrowserDesign
 import com.github.kr328.clash.remote.Remote
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import java.io.File
 
 class BrowserActivity : BaseActivity<BrowserDesign>() {
@@ -150,7 +151,10 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             val remote = Remote.service
             if (remote.isBound) {
                 val manager = remote.getClashManager()
-                manager?.let { it.queryConfiguration().mixedPort } ?: 7890
+                manager?.let { 
+                    val override = it.queryOverride(com.github.kr328.clash.core.Clash.OverrideSlot.Session)
+                    override.mixedPort ?: override.tproxyPort ?: override.httpPort ?: 7890
+                } ?: 7890
             } else {
                 Log.w("BrowserActivity", "Clash service not bound, using default port")
                 7890
@@ -167,7 +171,10 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             val remote = Remote.service
             if (remote.isBound) {
                 val manager = remote.getClashManager()
-                manager?.let { it.queryConfiguration().mixedPort } ?: 7890
+                manager?.let { 
+                    val override = it.queryOverride(com.github.kr328.clash.core.Clash.OverrideSlot.Session)
+                    override.mixedPort ?: override.tproxyPort ?: override.httpPort ?: 7890
+                } ?: -1
             } else {
                 Log.w("BrowserActivity", "Clash service not running")
                 -1
@@ -768,22 +775,29 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
     private fun setupProxy() {
         // Check if ProxyController is supported
         if (WebViewFeature.isFeatureSupported(WebViewFeature.PROXY_OVERRIDE)) {
-            // Get actual proxy port from system configuration
-            val proxyPort = getSystemProxyPort()
-            if (proxyPort > 0) {
-                val proxyConfig = ProxyConfig.Builder()
-                    .addProxyRule("127.0.0.1:$proxyPort") // Use actual proxy port
-                    .build()
-            
-                ProxyController.getInstance().setProxyOverride(proxyConfig, java.util.concurrent.Executors.newSingleThreadExecutor()) {
-                    // Proxy override applied
-                    Log.d("BrowserActivity", "Proxy override applied successfully on port: $proxyPort")
-                }
-            } else {
-                Log.w("BrowserActivity", "No valid proxy port found, proxy may not be available")
-                // Optionally show notification to user
-                runOnUiThread {
-                    Toast.makeText(this@BrowserActivity, "代理服务未启动或端口不可用", Toast.LENGTH_SHORT).show()
+            // Launch coroutine to get proxy port
+            lifecycleScope.launch {
+                try {
+                    // Get actual proxy port from system configuration
+                    val proxyPort = getSystemProxyPort()
+                    if (proxyPort > 0) {
+                        val proxyConfig = ProxyConfig.Builder()
+                            .addProxyRule("127.0.0.1:$proxyPort") // Use actual proxy port
+                            .build()
+                    
+                        ProxyController.getInstance().setProxyOverride(proxyConfig, java.util.concurrent.Executors.newSingleThreadExecutor()) {
+                            // Proxy override applied
+                            Log.d("BrowserActivity", "Proxy override applied successfully on port: $proxyPort")
+                        }
+                    } else {
+                        Log.w("BrowserActivity", "No valid proxy port found, proxy may not be available")
+                        // Optionally show notification to user
+                        runOnUiThread {
+                            Toast.makeText(this@BrowserActivity, "代理服务未启动或端口不可用", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e("BrowserActivity", "Error setting up proxy", e)
                 }
             }
         } else {
