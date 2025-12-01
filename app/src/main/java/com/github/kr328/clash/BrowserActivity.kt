@@ -150,7 +150,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             val remote = Remote.service
             if (remote.isBound) {
                 val manager = remote.getClashManager()
-                manager?.queryConfiguration()?.mixedPort ?: 7890
+                manager?.let { it.queryConfiguration().mixedPort } ?: 7890
             } else {
                 Log.w("BrowserActivity", "Clash service not bound, using default port")
                 7890
@@ -167,7 +167,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             val remote = Remote.service
             if (remote.isBound) {
                 val manager = remote.getClashManager()
-                manager?.queryConfiguration()?.mixedPort ?: 7890
+                manager?.let { it.queryConfiguration().mixedPort } ?: 7890
             } else {
                 Log.w("BrowserActivity", "Clash service not running")
                 -1
