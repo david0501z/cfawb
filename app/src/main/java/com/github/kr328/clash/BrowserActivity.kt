@@ -28,13 +28,144 @@ import androidx.webkit.ProxyController
 import androidx.webkit.WebViewFeature
 import com.github.kr328.clash.design.BrowserDesign
 import com.github.kr328.clash.remote.Remote
+import com.github.kr328.clash.common.log.Log as ClashLog
+import com.github.kr328.clash.util.logsDir
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.*
+import java.io.FileWriter
+import java.io.IOException
 
 class BrowserActivity : BaseActivity<BrowserDesign>() {
     companion object {
         private const val REQUEST_CODE_FILE_CHOOSER = 1001
+        private const val BROWSER_LOG_TAG = "BrowserActivity"
+    }
+    
+    // Browser logger instance
+    private lateinit var browserLogger: BrowserLogger
+    
+    /**
+     * 浏览器专用日志记录器 - 完全集成到标准日志系统
+     */
+    private inner class BrowserLogger {
+        private val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.getDefault())
+        private val logFile: File
+        
+        init {
+            // 按照标准日志系统命名规则生成日志文件名
+            val currentTime = Date()
+            val fileName = "clash-${currentTime.time}.log"
+            logFile = logsDir.resolve(fileName)
+            initializeLogFile()
+        }
+        
+        private fun initializeLogFile() {
+            try {
+                // 确保日志目录存在
+                logsDir.mkdirs()
+                
+                if (!logFile.exists()) {
+                    logFile.createNewFile()
+                    writeLog("INIT", "Browser log file created: ${logFile.absolutePath}")
+                    ClashLog.i("Browser log initialized at: ${logFile.absolutePath}")
+                }
+            } catch (e: IOException) {
+                ClashLog.e("Failed to create browser log file", e)
+            }
+        }
+        
+        private fun writeLog(level: String, message: String) {
+            val timestamp = dateFormat.format(Date())
+            val logEntry = "[$timestamp] [$level] $message\n"
+            
+            try {
+                FileWriter(logFile, true).use { writer ->
+                    writer.append(logEntry)
+                    writer.flush()
+                }
+            } catch (e: IOException) {
+                Log.e(BROWSER_LOG_TAG, "Failed to write to browser log file", e)
+            }
+            
+            // 同时写入系统日志
+            when (level) {
+                "DEBUG" -> ClashLog.d(message)
+                "INFO" -> ClashLog.i(message)
+                "WARN" -> ClashLog.w(message)
+                "ERROR" -> ClashLog.e(message)
+                else -> ClashLog.i(message)
+            }
+        }
+        
+        fun debug(message: String) = writeLog("DEBUG", message)
+        fun info(message: String) = writeLog("INFO", message)
+        fun warn(message: String) = writeLog("WARN", message)
+        fun error(message: String, throwable: Throwable? = null) {
+            val fullMessage = if (throwable != null) {
+                "$message - ${throwable.message}"
+            } else {
+                message
+            }
+            writeLog("ERROR", fullMessage)
+        }
+        
+        fun logProxyEvent(event: String, details: Map<String, Any> = emptyMap()) {
+            val detailStr = if (details.isNotEmpty()) {
+                details.entries.joinToString(", ") { "${it.key}=${it.value}" }
+            } else {
+                ""
+            }
+            writeLog("PROXY", "$event${if (detailStr.isNotEmpty()) " - $detailStr" else ""}")
+        }
+        
+        fun logWebviewEvent(action: String, url: String? = null, details: String = "") {
+            val message = StringBuilder().apply {
+                append("WEBVIEW_$action")
+                url?.let { append(" URL: $it") }
+                if (details.isNotEmpty()) append(" Details: $details")
+            }.toString()
+            writeLog("WEBVIEW", message)
+        }
+        
+        fun exportLogs(): String {
+            return try {
+                if (logFile.exists()) {
+                    logFile.readText()
+                } else {
+                    "No browser logs available"
+                }
+            } catch (e: Exception) {
+                "Error reading browser logs: ${e.message}"
+            }
+        }
+        
+        fun clearLogs() {
+            try {
+                if (logFile.exists()) {
+                    logFile.writeText("")
+                    writeLog("INIT", "Browser logs cleared")
+                }
+            } catch (e: Exception) {
+                ClashLog.e("Failed to clear browser logs", e)
+            }
+        }
+        
+        /**
+         * 获取当前日志文件的路径，用于在日志查看界面中显示
+         */
+        fun getLogFile(): File = logFile
+        
+        /**
+         * 创建一个新的浏览器日志文件实例（用于外部访问）
+         */
+        fun createBrowserLogFile(activity: BrowserActivity): File {
+            val currentTime = Date()
+            val fileName = "clash-${currentTime.time}.log"
+            return activity.logsDir.resolve(fileName)
+        }
     }
     
     private data class BrowserTab(
@@ -147,20 +278,37 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
     
     private suspend fun getSystemProxyPort(): Int {
         return try {
+            browserLogger.debug("Getting system proxy port...")
             // Get actual proxy port from Clash service
             val remote = Remote.service
             if (remote.isBound) {
+                browserLogger.debug("Remote service is bound, getting clash manager...")
                 val manager = remote.getClashManager()
                 manager?.let { 
                     val override = it.queryOverride(com.github.kr328.clash.core.Clash.OverrideSlot.Session)
-                    override.mixedPort ?: override.tproxyPort ?: override.httpPort ?: 7890
-                } ?: 7890
+                    val port = override.mixedPort ?: override.tproxyPort ?: override.httpPort ?: 7890
+                    
+                    val details = mapOf(
+                        "mixedPort" to (override.mixedPort ?: "null"),
+                        "tproxyPort" to (override.tproxyPort ?: "null"),
+                        "httpPort" to (override.httpPort ?: "null"),
+                        "selectedPort" to port
+                    )
+                    browserLogger.logProxyEvent("PORT_RETRIEVED", details)
+                    
+                    ClashLog.d("Retrieved proxy port: $port (mixed: ${override.mixedPort}, tproxy: ${override.tproxyPort}, http: ${override.httpPort})")
+                    port
+                } ?: 7890.also { 
+                    browserLogger.warn("Clash manager is null, using default port: $it")
+                }
             } else {
-                Log.w("BrowserActivity", "Clash service not bound, using default port")
+                browserLogger.warn("Clash service not bound, using default port: 7890")
+                ClashLog.w("Clash service not bound, using default port")
                 7890
             }
         } catch (e: Exception) {
-            Log.e("BrowserActivity", "Error getting proxy port", e)
+            browserLogger.error("Error getting proxy port", e)
+            ClashLog.e("Error getting proxy port", e)
             7890 // Fallback to default port
         }
     }
@@ -264,10 +412,18 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
     private var filePathCallback: ValueCallback<Array<Uri>?>? = null
 
     override suspend fun main() {
+        // Initialize browser logger
+        browserLogger = BrowserLogger()
+        browserLogger.info("=== BROWSER ACTIVITY LIFECYCLE: START ===")
+        browserLogger.info("BrowserActivity starting...")
+        browserLogger.info("Device info: ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}, Android ${android.os.Build.VERSION.RELEASE}")
+        browserLogger.info("WebView version: ${android.webkit.WebView.getCurrentWebViewPackage()?.versionName ?: "Unknown"}")
+        
         val design = BrowserDesign(this)
 
         setContentDesign(design)
 
+        browserLogger.debug("Setting up proxy...")
         setupProxy()
 
         // Create first tab - check if we have a URL from the intent
@@ -576,6 +732,8 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
     }
 
     private fun setupWebView(webView: WebView) {
+        browserLogger.info("Setting up WebView...")
+        
         webView.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
@@ -587,23 +745,29 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             setSupportZoom(true)
         }
         
+        browserLogger.debug("WebView settings configured")
+        
         // Add JavaScript interface for handling blob downloads
         webView.addJavascriptInterface(BlobDownloadInterface(), "AndroidInterface")
+        browserLogger.debug("JavaScript interface added")
 
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                 val url = request?.url?.toString()
-                Log.d("BrowserActivity", "shouldOverrideUrlLoading: $url")
+                browserLogger.logWebviewEvent("URL_LOADING", url)
+                ClashLog.d("shouldOverrideUrlLoading: $url")
                 
                 // 处理特殊协议，如 baiduboxapp://
                 if (url != null && url.startsWith("baiduboxapp://")) {
-                    Log.d("BrowserActivity", "Intercepted baiduboxapp URL: $url")
+                    browserLogger.logWebviewEvent("INTERCEPT_PROTOCOL", url, "baiduboxapp")
+                    ClashLog.d("Intercepted baiduboxapp URL: $url")
                     try {
                         // 显示对话框询问用户是否要打开对应的应用
                         showProtocolHandlerDialog(url, view)
                         return true
                     } catch (e: Exception) {
-                        Log.e("BrowserActivity", "Error processing baiduboxapp URL", e)
+                        browserLogger.error("Error processing baiduboxapp URL", e)
+                        ClashLog.e("Error processing baiduboxapp URL", e)
                         return true
                     }
                 }
@@ -613,6 +777,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             
             override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                 super.onPageStarted(view, url, favicon)
+                browserLogger.logWebviewEvent("PAGE_STARTED", url)
                 isLoading = true
                 design?.progressBar?.visibility = android.view.View.VISIBLE
                 design?.urlInput?.setText(url)
@@ -629,6 +794,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
 
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
+                browserLogger.logWebviewEvent("PAGE_FINISHED", url, "Title: ${view?.title}")
                 isLoading = false
                 design?.progressBar?.visibility = android.view.View.GONE
                 design?.urlInput?.setText(url)
@@ -641,9 +807,12 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                     tabs[currentIndex].title = title
                     tabs[currentIndex].url = url ?: ""
                     
+                    browserLogger.debug("Tab updated: index=$currentIndex, title='$title', url='$url'")
+                    
                     // Save to history
                     if (url != null) {
                         saveToHistory(title, url)
+                        browserLogger.debug("Saved to history: '$title' -> '$url'")
                     }
                 }
             }
@@ -654,11 +823,15 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 error: WebResourceError?
             ) {
                 super.onReceivedError(view, request, error)
+                val url = request?.url?.toString()
+                val errorCode = error?.errorCode
+                val description = error?.description?.toString()
+                
+                browserLogger.logWebviewEvent("RECEIVED_ERROR", url, "ErrorCode: $errorCode, Description: $description")
+                
                 isLoading = false
                 design?.progressBar?.visibility = android.view.View.GONE
-                
-                val url = request?.url?.toString()
-                Log.e("BrowserActivity", "Loading error for URL: $url, error: ${error?.description}")
+                ClashLog.e("Loading error for URL: $url, error: ${error?.description}")
             }
         }
 
@@ -773,38 +946,116 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
     }
 
     private fun setupProxy() {
+        browserLogger.info("=== PROXY SETUP START ===")
+        
         // Check if ProxyController is supported
         if (WebViewFeature.isFeatureSupported(WebViewFeature.PROXY_OVERRIDE)) {
+            browserLogger.info("Proxy override feature is supported, setting up proxy...")
+            ClashLog.d("Proxy override feature is supported, setting up proxy...")
+            
             // Launch coroutine to get proxy port
             lifecycleScope.launch {
                 try {
+                    browserLogger.debug("Launching proxy setup coroutine...")
                     // Get actual proxy port from system configuration
                     val proxyPort = getSystemProxyPort()
+                    browserLogger.info("Retrieved proxy port: $proxyPort")
+                    ClashLog.d("Setting up proxy with port: $proxyPort")
+                    
                     if (proxyPort > 0) {
+                        browserLogger.info("Creating proxy config for port: $proxyPort")
                         val proxyConfig = ProxyConfig.Builder()
                             .addProxyRule("127.0.0.1:$proxyPort") // Use actual proxy port
+                            .addBypassRule("localhost") // Bypass localhost
+                            .addBypassRule("127.*") // Bypass local addresses
+                            .addBypassRule("::1") // Bypass IPv6 localhost
                             .build()
+                        
+                        browserLogger.logProxyEvent("CONFIG_CREATED", mapOf(
+                            "port" to proxyPort,
+                            "rules" to "127.0.0.1:$proxyPort",
+                            "bypassRules" to "localhost,127.*,::1"
+                        ))
                     
                         ProxyController.getInstance().setProxyOverride(proxyConfig, java.util.concurrent.Executors.newSingleThreadExecutor()) {
                             // Proxy override applied
-                            Log.d("BrowserActivity", "Proxy override applied successfully on port: $proxyPort")
+                            browserLogger.logProxyEvent("APPLIED_SUCCESSFULLY", mapOf("port" to proxyPort))
+                            ClashLog.d("Proxy override applied successfully on port: $proxyPort")
+                            runOnUiThread {
+                                Toast.makeText(this@BrowserActivity, "代理已设置，端口: $proxyPort", Toast.LENGTH_SHORT).show()
+                            }
                         }
+                        
+                        // Test proxy connectivity
+                        browserLogger.debug("Waiting 1 second for proxy to apply...")
+                        Thread.sleep(1000) // Give proxy time to apply
+                        testProxyConnectivity(proxyPort)
                     } else {
-                        Log.w("BrowserActivity", "No valid proxy port found, proxy may not be available")
+                        browserLogger.warn("No valid proxy port found, proxy may not be available")
+                        ClashLog.w("No valid proxy port found, proxy may not be available")
                         // Optionally show notification to user
                         runOnUiThread {
-                            Toast.makeText(this@BrowserActivity, "代理服务未启动或端口不可用", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(this@BrowserActivity, "代理服务未启动或端口不可用", Toast.LENGTH_LONG).show()
                         }
                     }
                 } catch (e: Exception) {
-                    Log.e("BrowserActivity", "Error setting up proxy", e)
+                    browserLogger.error("Error setting up proxy", e)
+                    ClashLog.e("Error setting up proxy", e)
+                    runOnUiThread {
+                        Toast.makeText(this@BrowserActivity, "代理设置失败: ${e.message}", Toast.LENGTH_LONG).show()
+                    }
                 }
             }
         } else {
-            Log.w("BrowserActivity", "Proxy override feature not supported on this device")
+            browserLogger.warn("Proxy override feature not supported on this device")
+            ClashLog.w("Proxy override feature not supported on this device")
+            runOnUiThread {
+                Toast.makeText(this@BrowserActivity, "设备不支持代理功能", Toast.LENGTH_LONG).show()
+            }
         }
+        
+        browserLogger.info("=== PROXY SETUP END ===")
     }
 
+    private fun testProxyConnectivity(port: Int) {
+        lifecycleScope.launch {
+            try {
+                browserLogger.info("Testing proxy connectivity on port $port...")
+                ClashLog.d("Testing proxy connectivity on port $port...")
+                
+                val startTime = System.currentTimeMillis()
+                // Simple socket test to check if proxy is listening
+                java.net.Socket().use { socket ->
+                    socket.connect(java.net.InetSocketAddress("127.0.0.1", port), 3000)
+                    val connectTime = System.currentTimeMillis() - startTime
+                    
+                    browserLogger.logProxyEvent("CONNECTIVITY_TEST_SUCCESS", mapOf(
+                        "port" to port,
+                        "connectTimeMs" to connectTime,
+                        "localAddress" to socket.localAddress.toString(),
+                        "remoteAddress" to socket.remoteSocketAddress.toString()
+                    ))
+                    
+                    ClashLog.d("Proxy is reachable on port $port (connection time: ${connectTime}ms)")
+                    runOnUiThread {
+                        Toast.makeText(this@BrowserActivity, "代理连接正常 (${connectTime}ms)", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            } catch (e: Exception) {
+                val errorDetails = mapOf(
+                    "port" to port,
+                    "errorType" to e.javaClass.simpleName,
+                    "errorMessage" to (e.message ?: "Unknown error")
+                )
+                browserLogger.logProxyEvent("CONNECTIVITY_TEST_FAILED", errorDetails)
+                ClashLog.e("Proxy connectivity test failed", e)
+                runOnUiThread {
+                    Toast.makeText(this@BrowserActivity, "代理连接失败: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+    
     private fun loadUrlFromInput(design: BrowserDesign) {
         var url = design.urlInput.text.toString().trim()
         if (!TextUtils.isEmpty(url)) {
@@ -1008,6 +1259,9 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
     
     override fun onResume() {
         super.onResume()
+        browserLogger?.info("=== BROWSER ACTIVITY LIFECYCLE: RESUME ===")
+        browserLogger?.info("Browser activity resumed - continuing logging...")
+        
         // Ensure the current tab is properly focused when returning to the activity
         val currentTab = tabs.getOrNull(currentTabIndex)
         currentTab?.webView?.requestFocus()
@@ -1110,8 +1364,36 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             downloadManager.enqueue(request)
             //Toast.makeText(this@BrowserActivity, "开始下载代理文件: $filename\nURL: $proxyUrl", Toast.LENGTH_LONG).show()
         } catch (e: Exception) {
-            Log.e("BrowserActivity", "Error downloading proxy file", e)
+                ClashLog.e("Error downloading proxy file", e)
             Toast.makeText(this@BrowserActivity, "代理文件下载失败: ${e.message}\nURL: $proxyUrl", Toast.LENGTH_LONG).show()
+        }
+    }
+    
+    override fun onPause() {
+        super.onPause()
+        browserLogger?.info("=== BROWSER ACTIVITY LIFECYCLE: PAUSE ===")
+        browserLogger?.info("Browser activity paused - logging continues...")
+    }
+    
+    override fun onStop() {
+        super.onStop()
+        browserLogger?.info("=== BROWSER ACTIVITY LIFECYCLE: STOP ===")
+        browserLogger?.info("Browser activity stopped - logging persists...")
+    }
+    
+    override fun onDestroy() {
+        super.onDestroy()
+        browserLogger?.info("=== BROWSER ACTIVITY LIFECYCLE: DESTROY ===")
+        browserLogger?.info("Browser activity destroyed - saving final logs...")
+        
+        // Export final logs before destruction
+        try {
+            val finalLogs = browserLogger?.exportLogs()
+            if (!finalLogs.isNullOrEmpty()) {
+                ClashLog.i("Final browser logs:\n$finalLogs")
+            }
+        } catch (e: Exception) {
+            ClashLog.e("Failed to export final logs", e)
         }
     }
 }
