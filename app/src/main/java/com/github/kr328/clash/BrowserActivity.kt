@@ -316,34 +316,60 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             ClashLog.d("BrowserActivity: Getting system proxy port...")
             // Get actual proxy port from Clash service
             val remote = Remote.service
+            ClashLog.d("BrowserActivity: Remote service status - isBound: ${remote.isBound}")
+            
             if (remote.isBound) {
                 ClashLog.d("BrowserActivity: Remote service is bound, getting clash manager...")
-                val manager = remote.getClashManager()
-                manager?.let { 
-                    val override = it.queryOverride(com.github.kr328.clash.core.Clash.OverrideSlot.Session)
-                    val port = override.mixedPort ?: override.tproxyPort ?: override.httpPort ?: 7890
+                try {
+                    val manager = remote.getClashManager()
+                    ClashLog.d("BrowserActivity: Clash manager obtained: ${manager != null}")
                     
-                    val details = mapOf(
-                        "mixedPort" to (override.mixedPort ?: "null"),
-                        "tproxyPort" to (override.tproxyPort ?: "null"),
-                        "httpPort" to (override.httpPort ?: "null"),
-                        "selectedPort" to port
-                    )
-                    ClashLog.d("BrowserActivity: Port retrieved - $details")
-                    
-                    ClashLog.d("Retrieved proxy port: $port (mixed: ${override.mixedPort}, tproxy: ${override.tproxyPort}, http: ${override.httpPort})")
-                    port
-                } ?: 7890.also { 
-                    ClashLog.w("BrowserActivity: Clash manager is null, using default port: $it")
+                    manager?.let { 
+                        val override = it.queryOverride(com.github.kr328.clash.core.Clash.OverrideSlot.Session)
+                        val mixedPort = override.mixedPort
+                        val tproxyPort = override.tproxyPort
+                        val httpPort = override.httpPort
+                        val port = mixedPort ?: tproxyPort ?: httpPort ?: 7890
+                        
+                        val details = mapOf(
+                            "mixedPort" to (mixedPort ?: "null"),
+                            "tproxyPort" to (tproxyPort ?: "null"),
+                            "httpPort" to (httpPort ?: "null"),
+                            "selectedPort" to port
+                        )
+                        ClashLog.d("BrowserActivity: Port retrieved - $details")
+                        
+                        runOnUiThread {
+                            Toast.makeText(this@BrowserActivity, "检测到代理端口: $port", Toast.LENGTH_SHORT).show()
+                        }
+                        
+                        ClashLog.d("Retrieved proxy port: $port (mixed: $mixedPort, tproxy: $tproxyPort, http: $httpPort)")
+                        port
+                    } ?: 7890.also { 
+                        ClashLog.w("BrowserActivity: Clash manager is null, using default port: $it")
+                        runOnUiThread {
+                            Toast.makeText(this@BrowserActivity, "Clash管理器为空，使用默认端口: $it", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                } catch (e: Exception) {
+                    ClashLog.e("BrowserActivity: Error getting clash manager", e)
+                    runOnUiThread {
+                        Toast.makeText(this@BrowserActivity, "获取Clash管理器失败: ${e.javaClass.simpleName}", Toast.LENGTH_LONG).show()
+                    }
+                    7890
                 }
             } else {
                 ClashLog.w("BrowserActivity: Clash service not bound, using default port: 7890")
-                ClashLog.w("Clash service not bound, using default port")
+                runOnUiThread {
+                    Toast.makeText(this@BrowserActivity, "Clash服务未绑定，使用默认端口7890", Toast.LENGTH_LONG).show()
+                }
                 7890
             }
         } catch (e: Exception) {
             ClashLog.e("BrowserActivity: Error getting proxy port", e)
-            ClashLog.e("Error getting proxy port", e)
+            runOnUiThread {
+                Toast.makeText(this@BrowserActivity, "获取代理端口出错: ${e.javaClass.simpleName}", Toast.LENGTH_LONG).show()
+            }
             7890 // Fallback to default port
         }
     }
@@ -1072,15 +1098,16 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                     }
                 }
             } catch (e: Exception) {
+                val errorMessage = e.message ?: e.javaClass.simpleName
                 val errorDetails = mapOf(
                     "port" to port,
                     "errorType" to e.javaClass.simpleName,
-                    "errorMessage" to (e.message ?: "Unknown error")
+                    "errorMessage" to errorMessage
                 )
                 ClashLog.e("BrowserActivity: Connectivity test failed - $errorDetails")
                 ClashLog.e("Proxy connectivity test failed", e)
                 runOnUiThread {
-                    Toast.makeText(this@BrowserActivity, "代理连接失败: ${e.message}", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this@BrowserActivity, "代理连接失败: $errorMessage", Toast.LENGTH_LONG).show()
                 }
             }
         }
