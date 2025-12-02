@@ -23,9 +23,6 @@ import android.view.inputmethod.InputMethodManager
 import android.webkit.*
 import android.widget.*
 import androidx.lifecycle.lifecycleScope
-import androidx.appcompat.app.AlertDialog
-import android.graphics.Typeface
-import android.graphics.Color
 import androidx.webkit.ProxyConfig
 import androidx.webkit.ProxyController
 import androidx.webkit.WebViewFeature
@@ -51,7 +48,16 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
         @android.webkit.JavascriptInterface
         fun onBlobDataReady(dataUrl: String, contentDisposition: String, mimeType: String) {
             // Extract filename from contentDisposition
-            val filename = URLUtil.guessFileName("", contentDisposition, mimeType)
+            var filename = "download"
+            if (contentDisposition.contains("filename=")) {
+                val startIndex = contentDisposition.indexOf("filename=") + 9
+                val endIndex = contentDisposition.indexOf(";", startIndex)
+                filename = if (endIndex > startIndex) {
+                    contentDisposition.substring(startIndex, endIndex).replace("\"", "")
+                } else {
+                    contentDisposition.substring(startIndex).replace("\"", "")
+                }
+            }
             
             // Save data URL to file
             saveDataUrlToFile(dataUrl, filename, mimeType)
@@ -63,37 +69,138 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             val logMessage = "Saving blob data to file: $filename"
             Log.d("BrowserActivity", logMessage)
             
-            // Parse data URL
-            val commaIndex = dataUrl.indexOf(',')
+            // 复制日志信息到剪贴板
+            copyToClipboard(logMessage)
+            
+            // Remove data URL prefix (e.g., "data:image/png;base64,")
+            val commaIndex = dataUrl.indexOf(",")
             if (commaIndex == -1) {
-                Log.e("BrowserActivity", "Invalid data URL format")
-                return
+                val errorMsg = "Invalid data URL format"
+                Log.e("BrowserActivity", errorMsg)
+                copyToClipboard("Blob Error: $errorMsg")
+                throw IllegalArgumentException(errorMsg)
             }
             
             val base64Data = dataUrl.substring(commaIndex + 1)
-            val decodedBytes = android.util.Base64.decode(base64Data, android.util.Base64.DEFAULT)
+            val data = android.util.Base64.decode(base64Data, android.util.Base64.DEFAULT)
             
-            // Create download directory
-            val downloadDir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "cfawb")
-            if (!downloadDir.exists()) {
-                downloadDir.mkdirs()
+            // Save to app's specific downloads directory for consistency
+            val downloadsDir = File(android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS), "cfawb")
+            if (!downloadsDir.exists()) {
+                downloadsDir.mkdirs()
             }
+            val file = java.io.File(downloadsDir, filename)
             
-            // Save to file
-            val outputFile = File(downloadDir, filename)
-            outputFile.writeBytes(decodedBytes)
+            val fos = java.io.FileOutputStream(file)
+            fos.write(data)
+            fos.close()
             
-            Log.d("BrowserActivity", "Successfully saved blob data to: ${outputFile.absolutePath}")
+            val successMessage = "Blob file saved successfully: ${file.absolutePath}"
+            Log.d("BrowserActivity", successMessage)
+            copyToClipboard(successMessage)
             
-            // Show toast to user
+            // Notify media scanner
+            android.media.MediaScannerConnection.scanFile(
+                this,
+                arrayOf(file.absolutePath),
+                arrayOf(mimeType),
+                null
+            )
+            
+            // Also add to DownloadManager for better integration with system downloads
+            val downloadManager = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+            val downloadUri = Uri.fromFile(file)
+            val request = DownloadManager.Request(downloadUri).apply {
+                setTitle(filename)
+                setDescription("Downloaded from browser (blob)")
+                setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                setDestinationUri(Uri.fromFile(file))
+            }
+            downloadManager.enqueue(request)
+            
             runOnUiThread {
-                Toast.makeText(this@BrowserActivity, "文件已保存: $filename", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Blob文件已下载: $filename\n日志已复制到剪贴板", Toast.LENGTH_LONG).show()
             }
-            
         } catch (e: Exception) {
-            Log.e("BrowserActivity", "Error saving blob data to file", e)
+            e.printStackTrace()
+            val errorMessage = "Blob下载失败: ${e.message ?: "Unknown error"}"
+            Log.e("BrowserActivity", errorMessage, e)
+            copyToClipboard(errorMessage)
             runOnUiThread {
-                Toast.makeText(this@BrowserActivity, "保存文件失败: ${e.message}", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "$errorMessage\n错误日志已复制到剪贴板", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+    
+    private fun copyToClipboard(message: String) {
+        try {
+            val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            val clip = ClipData.newPlainText("BrowserActivity Log", message)
+            clipboard.setPrimaryClip(clip)
+            Log.d("BrowserActivity", "Copied to clipboard: $message")
+        } catch (e: Exception) {
+            Log.e("BrowserActivity", "Failed to copy to clipboard", e)
+        }
+    }
+    
+    private fun showProtocolHandlerDialog(protocolUrl: String, webView: WebView?) {
+        try {
+            val appName = getAppNameForProtocol(protocolUrl)
+            val message = "此链接需要在 $appName 应用中打开。\n\n链接: $protocolUrl\n\n是否允许打开？"
+            
+            android.app.AlertDialog.Builder(this)
+                .setTitle("打开外部应用")
+                .setMessage(message)
+                .setPositiveButton("允许") { _, _ ->
+                    tryOpenExternalApp(protocolUrl)
+                }
+                .setNegativeButton("取消", null)
+                .show()
+                
+        } catch (e: Exception) {
+            Log.e("BrowserActivity", "Error showing protocol handler dialog", e)
+        }
+    }
+    
+    private fun getAppNameForProtocol(protocolUrl: String): String {
+        return when {
+            protocolUrl.startsWith("baiduboxapp://") -> "百度"
+            protocolUrl.startsWith("weixin://") -> "微信"
+            protocolUrl.startsWith("alipay://") -> "支付宝"
+            protocolUrl.startsWith("taobao://") -> "淘宝"
+            protocolUrl.startsWith("qq://") -> "QQ"
+            protocolUrl.startsWith("mqq://") -> "手机QQ"
+            protocolUrl.startsWith("zhihu://") -> "知乎"
+            protocolUrl.startsWith("douyin://") -> "抖音"
+            protocolUrl.startsWith("tiktok://") -> "TikTok"
+            else -> "相应"
+        }
+    }
+    
+    private fun tryOpenExternalApp(protocolUrl: String) {
+        try {
+            Log.d("BrowserActivity", "Attempting to open external app with URL: $protocolUrl")
+            
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(protocolUrl))
+            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            
+            // 检查是否有应用可以处理此意图
+            val packageManager = packageManager
+            val activities = packageManager.queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY)
+            
+            if (activities.isNotEmpty()) {
+                startActivity(intent)
+                Log.d("BrowserActivity", "Successfully launched external app")
+            } else {
+                Log.w("BrowserActivity", "No app found to handle protocol: $protocolUrl")
+                runOnUiThread {
+                    Toast.makeText(this@BrowserActivity, "未找到能处理此链接的应用", Toast.LENGTH_LONG).show()
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("BrowserActivity", "Error opening external app", e)
+            runOnUiThread {
+                Toast.makeText(this@BrowserActivity, "打开应用失败: ${e.message}", Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -139,7 +246,17 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
         design.reloadButton.setOnClickListener {
             try {
                 val currentTab = tabs.getOrNull(currentTabIndex)
-                currentTab?.webView?.reload()
+                if (currentTab != null) {
+                    if (isLoading) {
+                        Log.d("BrowserActivity", "Stopping loading in current tab ($currentTabIndex)")
+                        currentTab.webView.stopLoading()
+                    } else {
+                        Log.d("BrowserActivity", "Reloading current tab ($currentTabIndex): ${currentTab.webView.url}")
+                        currentTab.webView.reload()
+                    }
+                } else {
+                    Log.w("BrowserActivity", "No current tab available for reload")
+                }
             } catch (e: Exception) {
                 Log.e("BrowserActivity", "Error in reload button click", e)
             }
@@ -155,34 +272,79 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
 
         design.menuButton.setOnClickListener {
             try {
-                toggleMenu(design)
+                val popup = android.widget.PopupMenu(this, design.menuButton)
+                val inflater = popup.menuInflater
+                // Since we don't have a menu resource, we'll create menu items programmatically
+                popup.menu.add("关闭").setOnMenuItemClickListener { 
+                    finish()
+                    true
+                }
+                popup.menu.add("历史").setOnMenuItemClickListener { 
+                    Log.d("BrowserActivity", "Menu History button clicked")
+                    val intent = Intent(this@BrowserActivity, HistoryManagerActivity::class.java)
+                    startActivity(intent)
+                    true 
+                }
+                popup.menu.add("下载").setOnMenuItemClickListener { 
+                    Log.d("BrowserActivity", "Menu Download button clicked")
+                    val intent = Intent(this@BrowserActivity, DownloadManagerActivity::class.java)
+                    startActivity(intent)
+                    true 
+                }
+                popup.menu.add("返回代理页面").setOnMenuItemClickListener { 
+                    try {
+                        Log.d("BrowserActivity", "Switching to MainActivity without finishing BrowserActivity")
+                        val intent = Intent(this@BrowserActivity, MainActivity::class.java)
+                        intent.flags = Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+                        startActivity(intent)
+                    } catch (e: Exception) {
+                        Log.e("BrowserActivity", "Error switching to MainActivity", e)
+                    }
+                    true 
+                }
+                
+                popup.show()
             } catch (e: Exception) {
-                Log.e("BrowserActivity", "Error in menu button click", e)
+                Log.e("BrowserActivity", "Error showing popup menu", e)
             }
         }
 
         design.closeMenuButton.setOnClickListener {
-            try {
-                hideMenu(design)
-            } catch (e: Exception) {
-                Log.e("BrowserActivity", "Error in close menu button click", e)
-            }
+            // PopupMenu auto-dismisses, no action needed
         }
 
         design.settingsMenuButton.setOnClickListener {
+            Log.d("BrowserActivity", "Settings button clicked")
             try {
-                hideMenu(design)
-                finish() // Return to main activity
+                val intent = Intent(this@BrowserActivity, MainActivity::class.java)
+                intent.flags = Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+                startActivity(intent)
+                moveTaskToBack(false)
             } catch (e: Exception) {
                 Log.e("BrowserActivity", "Error in settings menu button click", e)
             }
         }
 
-        design.urlInput.setOnEditorActionListener { _, actionId, _ ->
-            if (actionId == EditorInfo.IME_ACTION_GO) {
-                loadUrlFromInput(design)
-                true
-            } else {
+        design.tabsCountButton.setOnClickListener {
+            try {
+                showTabsManagementPopup(design)
+            } catch (e: Exception) {
+                Log.e("BrowserActivity", "Error in tabs count button click", e)
+            }
+        }
+
+        design.urlInput.setOnEditorActionListener { _, actionId, event ->
+            try {
+                if (actionId == EditorInfo.IME_ACTION_SEARCH ||
+                    actionId == EditorInfo.IME_ACTION_DONE ||
+                    (event != null && event.keyCode == KeyEvent.KEYCODE_ENTER)) {
+                    loadUrlFromInput(design)
+                    true
+                } else {
+                    false
+                }
+            } catch (e: Exception) {
+                Log.e("BrowserActivity", "Error in URL input action", e)
                 false
             }
         }
@@ -193,52 +355,91 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
     }
 
     private fun createNewTab(design: BrowserDesign, url: String): BrowserTab {
-        val webView = WebView(this)
-        setupWebView(webView)
+        return try {
+            val webView = WebView(this)
+            setupWebView(webView)
 
-        // Create a container for the tab with close button
-        val tabContainer = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(8, 4, 8, 4)
-            setBackgroundResource(android.R.drawable.btn_default_small)
-            
-            val tabText = TextView(this@BrowserActivity).apply {
-                text = "New Tab"
-                textSize = 12f
-                setTextColor(resources.getColor(android.R.color.black))
-                maxWidth = 200
-                maxLines = 1
-                ellipsize = TextUtils.TruncateAt.END
+            // Create a container for the tab with close button
+            val tabContainer = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                setBackgroundResource(android.R.drawable.btn_default_small)
             }
-            
-            val closeButton = Button(this@BrowserActivity).apply {
-                text = "×"
-                textSize = 12f
-                setBackgroundColor(Color.TRANSPARENT)
-                setOnClickListener {
-                    val tabIndex = tabs.indexOfFirst { it.tabView == this@apply.parent }
-                    if (tabIndex >= 0) {
-                        closeTab(design, tabIndex)
-                    }
+
+            val tabView = TextView(this).apply {
+                text = "New Tab"
+                setPadding(16, 8, 16, 8)
+                gravity = Gravity.CENTER
+                layoutParams = LinearLayout.LayoutParams(
+                    0,
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    1.0f
+                )
+            }
+
+            val closeTabButton = ImageButton(this).apply {
+                setImageResource(android.R.drawable.ic_menu_close_clear_cancel)
+                setBackgroundResource(android.R.drawable.btn_default_small)
+                setPadding(8, 8, 8, 8)
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+            }
+
+            tabContainer.addView(tabView)
+            tabContainer.addView(closeTabButton)
+
+            val tab = BrowserTab(webView, tabView, tabContainer, url = url)
+            tabs.add(tab)
+
+            // Add WebView to container
+            design.webViewContainer.addView(webView)
+
+            // Switch to the newly created tab
+            switchToTab(design, tabs.size - 1)
+
+            // Set click listener for tab switching
+            val tabIndex = tabs.size - 1
+            tabView.setOnClickListener {
+                try {
+                    switchToTab(design, tabIndex)
+                } catch (e: Exception) {
+                    Log.e("BrowserActivity", "Error switching tab", e)
                 }
             }
-            
-            addView(tabText, LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-            addView(closeButton, LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-        }
 
-        val tab = BrowserTab(webView, tabContainer, tabContainer)
-        tabs.add(tab)
-        currentTabIndex = tabs.size - 1
-        
-        // Add WebView to container
-        design.webViewContainer.addView(webView)
-        
-        // Load URL
-        webView.loadUrl(url)
-        
-        return tab
+            // Set click listener for tab closing
+            val closeTabIndex = tabIndex
+            closeTabButton.setOnClickListener {
+                try {
+                    closeTab(design, closeTabIndex)
+                } catch (e: Exception) {
+                    Log.e("BrowserActivity", "Error closing tab", e)
+                }
+            }
+
+            // Load URL
+            webView.loadUrl(url)
+
+            // Update tabs count
+            updateTabsCount(design)
+
+            tab
+        } catch (e: Exception) {
+            Log.e("BrowserActivity", "Error creating new tab", e)
+            // Create a fallback tab with error message
+            val webView = WebView(this)
+            webView.loadData("<html><body><h1>Failed to create tab</h1><p>Error: ${e.message}</p></body></html>", "text/html", "UTF-8")
+            val tabView = TextView(this).apply {
+                text = "Error Tab"
+                setPadding(16, 8, 16, 8)
+                gravity = Gravity.CENTER
+            }
+            val tab = BrowserTab(webView, tabView, null, "Error Tab", "")
+            tabs.add(tab)
+            design.webViewContainer.addView(webView)
+            tab
+        }
     }
 
     private fun setupWebView(webView: WebView) {
@@ -277,7 +478,6 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 if (url != null && url.startsWith("baiduboxapp://")) {
                     Log.d("BrowserActivity", "Intercepted baiduboxapp URL: $url")
                     try {
-                        // 显示对话框询问用户是否要打开对应的应用
                         showProtocolHandlerDialog(url, view)
                         return true
                     } catch (e: Exception) {
@@ -301,10 +501,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 val currentIndex = tabs.indexOfFirst { it.webView == view }
                 if (currentIndex >= 0) {
                     val title = url?.let { extractDomain(it) } ?: "Loading..."
-                    // tabView is a LinearLayout, we need to find the TextView inside it
-                    val tabContainer = tabs[currentIndex].tabView as LinearLayout
-                    val tabText = tabContainer.getChildAt(0) as TextView
-                    tabText.text = title
+                    (tabs[currentIndex].tabView as TextView).text = title
                     tabs[currentIndex].title = title
                     tabs[currentIndex].url = url ?: ""
                 }
@@ -320,10 +517,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 val currentIndex = tabs.indexOfFirst { it.webView == view }
                 if (currentIndex >= 0) {
                     val title = view?.title?.takeIf { it.isNotEmpty() } ?: url?.let { extractDomain(it) } ?: "New Tab"
-                    // tabView is a LinearLayout, we need to find the TextView inside it
-                    val tabContainer = tabs[currentIndex].tabView as LinearLayout
-                    val tabText = tabContainer.getChildAt(0) as TextView
-                    tabText.text = title
+                    (tabs[currentIndex].tabView as TextView).text = title
                     tabs[currentIndex].title = title
                     tabs[currentIndex].url = url ?: ""
                     
@@ -438,19 +632,6 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
         updateTabsCount(design)
     }
 
-    private fun toggleMenu(design: BrowserDesign) {
-        val menuPopup = design.menuPopup
-        if (menuPopup.visibility == View.GONE) {
-            menuPopup.visibility = View.VISIBLE
-        } else {
-            menuPopup.visibility = View.GONE
-        }
-    }
-
-    private fun hideMenu(design: BrowserDesign) {
-        design.menuPopup.visibility = View.GONE
-    }
-
     private fun loadUrlFromInput(design: BrowserDesign) {
         var url = design.urlInput.text.toString().trim()
         if (!TextUtils.isEmpty(url)) {
@@ -462,7 +643,6 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             if (currentTab != null) {
                 Log.d("BrowserActivity", "Loading URL in current tab ($currentTabIndex): $url")
                 currentTab.webView.loadUrl(url)
-                // 更新当前标签页的URL信息
                 currentTab.url = url
             } else {
                 Log.w("BrowserActivity", "No current tab available for URL loading")
@@ -533,9 +713,6 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
         val tabCount = tabs.size
         val tabCountText = if (tabCount > 0) "⓿".replace("0", tabCount.toString()) else "⓪"
         design.tabsCountButton.contentDescription = "打开的页签数量: $tabCount"
-        // We'll update the button text to show the tab count
-        // Since we can't directly change the icon to show the number, we'll keep the icon
-        // but we could use a different approach if needed
     }
 
     private fun showTabsManagementPopup(design: BrowserDesign) {
@@ -569,7 +746,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                             addView(TextView(this@BrowserActivity).apply {
                                 text = tab.title
                                 textSize = 14f
-                    setTypeface(null, android.graphics.Typeface.BOLD)
+                                setTypeface(null, android.graphics.Typeface.BOLD)
                                 maxLines = 1
                                 ellipsize = TextUtils.TruncateAt.END
                             })
@@ -761,67 +938,6 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             
             ProxyController.getInstance().setProxyOverride(proxyConfig, java.util.concurrent.Executors.newSingleThreadExecutor()) {
                 // Proxy override applied
-            }
-        }
-    }
-
-    private fun showProtocolHandlerDialog(protocolUrl: String, webView: WebView?) {
-        try {
-            val appName = getAppNameForProtocol(protocolUrl)
-            val message = "此链接需要在 $appName 应用中打开。\n\n链接: $protocolUrl\n\n是否允许打开？"
-            
-            AlertDialog.Builder(this)
-                .setTitle("协议链接处理")
-                .setMessage(message)
-                .setPositiveButton("打开", { _, _ ->
-                    tryOpenExternalApp(protocolUrl)
-                })
-                .setNegativeButton("取消", null)
-                .show()
-
-        } catch (e: Exception) {
-            Log.e("BrowserActivity", "Error showing protocol handler dialog", e)
-        }
-    }
-
-    private fun getAppNameForProtocol(protocolUrl: String): String {
-        return when {
-            protocolUrl.startsWith("baiduboxapp://") -> "百度"
-            protocolUrl.startsWith("weixin://") -> "微信"
-            protocolUrl.startsWith("alipay://") -> "支付宝"
-            protocolUrl.startsWith("taobao://") -> "淘宝"
-            protocolUrl.startsWith("jd://") -> "京东"
-            protocolUrl.startsWith("qq://") -> "QQ"
-            protocolUrl.startsWith("zhihu://") -> "知乎"
-            protocolUrl.startsWith("douyin://") -> "抖音"
-            protocolUrl.startsWith("tiktok://") -> "TikTok"
-            else -> "相应"
-        }
-    }
-
-    private fun tryOpenExternalApp(protocolUrl: String) {
-        try {
-            Log.d("BrowserActivity", "Attempting to open external app with URL: $protocolUrl")
-
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(protocolUrl))
-            
-            // Check if there's an app that can handle this intent
-            val packageManager = packageManager
-            val activities = packageManager.queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY)
-            
-            if (activities.isNotEmpty()) {
-                startActivity(intent)
-                Log.d("BrowserActivity", "Successfully launched external app for: $protocolUrl")
-            } else {
-                Log.w("BrowserActivity", "No app found to handle protocol: $protocolUrl")
-                runOnUiThread {
-                    Toast.makeText(this@BrowserActivity, "未找到能处理此链接的应用", Toast.LENGTH_LONG).show()
-                }
-            }
-        } catch (e: Exception) {
-            Log.e("BrowserActivity", "Error opening external app", e)
-            runOnUiThread {
-                Toast.makeText(this@BrowserActivity, "打开应用失败: ${e.message}", Toast.LENGTH_LONG).show()
             }
         }
     }
