@@ -301,7 +301,10 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 val currentIndex = tabs.indexOfFirst { it.webView == view }
                 if (currentIndex >= 0) {
                     val title = url?.let { extractDomain(it) } ?: "Loading..."
-                    (tabs[currentIndex].tabView as TextView).text = title
+                    // tabView is a LinearLayout, we need to find the TextView inside it
+                    val tabContainer = tabs[currentIndex].tabView as LinearLayout
+                    val tabText = tabContainer.getChildAt(0) as TextView
+                    tabText.text = title
                     tabs[currentIndex].title = title
                     tabs[currentIndex].url = url ?: ""
                 }
@@ -317,7 +320,10 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 val currentIndex = tabs.indexOfFirst { it.webView == view }
                 if (currentIndex >= 0) {
                     val title = view?.title?.takeIf { it.isNotEmpty() } ?: url?.let { extractDomain(it) } ?: "New Tab"
-                    (tabs[currentIndex].tabView as TextView).text = title
+                    // tabView is a LinearLayout, we need to find the TextView inside it
+                    val tabContainer = tabs[currentIndex].tabView as LinearLayout
+                    val tabText = tabContainer.getChildAt(0) as TextView
+                    tabText.text = title
                     tabs[currentIndex].title = title
                     tabs[currentIndex].url = url ?: ""
                     
