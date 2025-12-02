@@ -57,25 +57,3 @@
     boolean getDEBUG() return false;
     boolean getRECOVER_STACK_TRACES() return false;
 }
-
-# Keep WebView proxy related classes and methods
--keep class androidx.webkit.ProxyController { *; }
--keep class androidx.webkit.ProxyConfig { *; }
--keep class androidx.webkit.WebViewFeature { *; }
-
-# Keep our BrowserActivity and proxy setup
--keep class com.github.kr328.clash.BrowserActivity { *; }
--keep class com.github.kr328.clash.BrowserActivity$* { *; }
-
-# Keep JavaScript interface for blob downloads
--keepclassmembers class * extends android.webkit.WebViewClient {
-    public void *(android.webkit.WebView, java.lang.String, android.graphics.Bitmap);
-}
-
--keepclassmembers class * {
-    @android.webkit.JavascriptInterface <methods>;
-}
-
-# Keep network related classes
--keep class okhttp3.** { *; }
--keep class retrofit2.** { *; }

@@ -70,13 +70,14 @@ class BrowserDesign(context: Context) : Design<BrowserDesign.Request>(context) {
     val closeMenuButton: android.widget.Button
         get() = binding.closeMenuButton
 
-    // Removed historyMenuButton and downloadMenuButton as they are deleted from layout
+    val historyMenuButton: android.widget.Button
+        get() = binding.historyMenuButton
+
+    val downloadMenuButton: android.widget.Button
+        get() = binding.downloadMenuButton
 
     val settingsMenuButton: android.widget.Button
         get() = binding.settingsMenuButton
-
-    val coordinatorLayout: androidx.coordinatorlayout.widget.CoordinatorLayout
-        get() = binding.coordinatorLayout
 
     val tabsCountButton: ImageButton
         get() = binding.tabsCountButton

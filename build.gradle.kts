@@ -35,7 +35,7 @@ subprojects {
         buildFeatures.buildConfig = true
         defaultConfig {
             if (isApp) {
-                applicationId = "com.github.metacubex.clashb"
+                applicationId = "com.github.metacubex.clash"
             }
 
             project.name.let { name ->
