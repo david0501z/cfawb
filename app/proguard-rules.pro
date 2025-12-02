@@ -67,15 +67,113 @@
 -keep class com.github.kr328.clash.BrowserActivity { *; }
 -keep class com.github.kr328.clash.BrowserActivity$* { *; }
 
+# Keep all WebView related classes and methods
+-keep class android.webkit.WebView { *; }
+-keep class android.webkit.WebViewClient { *; }
+-keep class android.webkit.WebChromeClient { *; }
+-keep class android.webkit.WebSettings { *; }
+-keep class android.webkit.ValueCallback { *; }
+-keep class android.webkit.WebResourceRequest { *; }
+-keep class android.webkit.WebResourceError { *; }
+-keep class android.webkit.WebResourceResponse { *; }
+-keep class android.webkit.ConsoleMessage { *; }
+-keep class android.webkit.GeolocationPermissions { *; }
+-keep class android.webkit.JsResult { *; }
+-keep class android.webkit.JsPromptResult { *; }
+-keep class android.webkit.JsConfirmResult { *; }
+-keep class android.webkit.JsAlert { *; }
+-keep class android.webkit.WebStorage { *; }
+-keep class android.webkit.WebViewDatabase { *; }
+-keep class android.webkit.CookieManager { *; }
+-keep class android.webkit.CookieSyncManager { *; }
+-keep class android.webkit.HttpAuthHandler { *; }
+-keep class android.webkit.SslErrorHandler { *; }
+-keep class android.webkit.ClientCertRequest { *; }
+-keep class android.webkit.WebBackForwardList { *; }
+-keep class android.webkit.WebHistoryItem { *; }
+-keep class android.webkit.DownloadListener { *; }
+-keep class android.webkit.WebIconDatabase { *; }
+-keep class android.webkit.WebSettingsClassic { *; }
+-keep class android.webkit.WebViewFragment { *; }
+-keep class android.webkit.WebViewProvider { *; }
+-keep class android.webkit.WebViewDelegate { *; }
+
 # Keep JavaScript interface for blob downloads
 -keepclassmembers class * extends android.webkit.WebViewClient {
     public void *(android.webkit.WebView, java.lang.String, android.graphics.Bitmap);
+    public void *(android.webkit.WebView, java.lang.String);
+    public boolean *(android.webkit.WebView, android.webkit.WebResourceRequest);
+    public void *(android.webkit.WebView, android.webkit.WebResourceRequest, android.webkit.WebResourceError);
+    public void *(android.webkit.WebView, android.webkit.WebResourceRequest, android.webkit.WebResourceResponse);
+}
+
+-keepclassmembers class * extends android.webkit.WebChromeClient {
+    public void *(android.webkit.WebView, int);
+    public void *(android.webkit.WebView, java.lang.String);
+    public boolean *(android.webkit.WebView, java.lang.String, android.webkit.ValueCallback, android.webkit.WebChromeClient.FileChooserParams);
+    public void *(android.webkit.WebView, android.webkit.ConsoleMessage);
+    public void *(android.webkit.WebView, java.lang.String, java.lang.String, android.webkit.JsResult);
+    public void *(android.webkit.WebView, java.lang.String, java.lang.String, android.webkit.JsPromptResult);
+    public void *(android.webkit.WebView, android.webkit.SslErrorHandler, android.net.http.SslError);
+    public void *(android.webkit.WebView, android.webkit.ClientCertRequest);
 }
 
 -keepclassmembers class * {
     @android.webkit.JavascriptInterface <methods>;
 }
 
+# Keep all reflection calls and native methods
+-keepclassmembers class * {
+    native <methods>;
+}
+
+# Keep all enum values
+-keepclassmembers enum * {
+    public static **[] values();
+    public static ** valueOf(java.lang.String);
+}
+
+# Keep Parcelable implementations
+-keep class * implements android.os.Parcelable {
+    public static final ** CREATOR;
+}
+
+# Keep Serializable implementations
+-keepnames class * implements java.io.Serializable
+-keepclassmembers class * implements java.io.Serializable {
+    static final long serialVersionUID;
+    private static final java.io.ObjectStreamField[] serialPersistentFields;
+    private void writeObject(java.io.ObjectOutputStream);
+    private void readObject(java.io.ObjectInputStream);
+    java.lang.Object writeReplace();
+    java.lang.Object readResolve();
+}
+
 # Keep network related classes
 -keep class okhttp3.** { *; }
 -keep class retrofit2.** { *; }
+
+# Additional rules for WebView proxy functionality
+-keep class android.net.Proxy { *; }
+-keep class android.net.ProxyInfo { *; }
+-keep class android.net.ConnectivityManager { *; }
+-keep class android.net.Network { *; }
+-keep class android.net.NetworkCapabilities { *; }
+-keep class android.net.NetworkRequest { *; }
+
+# Keep all classes that might be accessed via reflection from WebView
+-keepclassmembers class * {
+    @android.webkit.JavascriptInterface *;
+}
+
+# Keep all methods that might be called from JavaScript
+-keepclassmembers class * {
+    public *;
+}
+
+# Keep all fields that might be accessed from JavaScript
+-keepclassmembers class * {
+    private *;
+    protected *;
+    public *;
+}
