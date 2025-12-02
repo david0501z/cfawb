@@ -20,7 +20,7 @@ jobs:
       
       - name: Checkout and Update submodules
         run: |
-          git submodule add -b Alpha https://github.com/MetaCubeX/mihomo.git core/src/foss/golang/clash
+          #git submodule add -b Alpha https://github.com/MetaCubeX/mihomo.git core/src/foss/golang/clash
           git submodule update --init --recursive --remote --force
 
       - name: Setup Java
