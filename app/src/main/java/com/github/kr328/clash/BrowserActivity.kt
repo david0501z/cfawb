@@ -1013,71 +1013,19 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
     }
 
     private fun setupProxy() {
-        ClashLog.d("BrowserActivity: === PROXY SETUP START ===")
-        
         // Check if ProxyController is supported
         if (WebViewFeature.isFeatureSupported(WebViewFeature.PROXY_OVERRIDE)) {
-            ClashLog.d("BrowserActivity: Proxy override feature is supported, setting up proxy...")
-            ClashLog.d("Proxy override feature is supported, setting up proxy...")
+            val proxyConfig = ProxyConfig.Builder()
+                .addProxyRule("127.0.0.1:7890") // Clash Meta default HTTP proxy port
+                .build()
             
-            // Launch coroutine to get proxy port
-            lifecycleScope.launch {
-                try {
-                    ClashLog.d("BrowserActivity: Launching proxy setup coroutine...")
-                    // Get actual proxy port from system configuration
-                    val proxyPort = getSystemProxyPort()
-                    ClashLog.d("BrowserActivity: Retrieved proxy port: $proxyPort")
-                    ClashLog.d("Setting up proxy with port: $proxyPort")
-                    
-                    if (proxyPort > 0) {
-                        ClashLog.d("BrowserActivity: Creating proxy config for port: $proxyPort")
-                        val proxyConfig = ProxyConfig.Builder()
-                            .addProxyRule("127.0.0.1:$proxyPort") // Use actual proxy port
-                            .addBypassRule("localhost") // Bypass localhost
-                            .addBypassRule("127.*") // Bypass local addresses
-                            .addBypassRule("::1") // Bypass IPv6 localhost
-                            .build()
-                        
-                        ClashLog.d("BrowserActivity: Proxy config created - port: $proxyPort, rules: 127.0.0.1:$proxyPort, bypassRules: localhost,127.*,::1")
-                    
-                        ProxyController.getInstance().setProxyOverride(proxyConfig, java.util.concurrent.Executors.newSingleThreadExecutor()) {
-                            // Proxy override applied
-                            ClashLog.d("BrowserActivity: Proxy applied successfully - port: $proxyPort")
-                            ClashLog.d("Proxy override applied successfully on port: $proxyPort")
-                            runOnUiThread {
-                                Toast.makeText(this@BrowserActivity, "代理已设置，端口: $proxyPort", Toast.LENGTH_SHORT).show()
-                            }
-                        }
-                        
-                        // Test proxy connectivity
-                        ClashLog.d("BrowserActivity: Waiting 1 second for proxy to apply...")
-                        Thread.sleep(1000) // Give proxy time to apply
-                        testProxyConnectivity(proxyPort)
-                    } else {
-                        ClashLog.w("BrowserActivity: No valid proxy port found, proxy may not be available")
-                        ClashLog.w("No valid proxy port found, proxy may not be available")
-                        // Optionally show notification to user
-                        runOnUiThread {
-                            Toast.makeText(this@BrowserActivity, "代理服务未启动或端口不可用", Toast.LENGTH_LONG).show()
-                        }
-                    }
-                } catch (e: Exception) {
-                    ClashLog.e("BrowserActivity: Error setting up proxy", e)
-                    ClashLog.e("Error setting up proxy", e)
-                    runOnUiThread {
-                        Toast.makeText(this@BrowserActivity, "代理设置失败: ${e.message}", Toast.LENGTH_LONG).show()
-                    }
+            ProxyController.getInstance().setProxyOverride(proxyConfig, java.util.concurrent.Executors.newSingleThreadExecutor()) {
+                // Proxy override applied
+                runOnUiThread {
+                    Toast.makeText(this@BrowserActivity, "代理已设置，端口: 7890", Toast.LENGTH_SHORT).show()
                 }
             }
-        } else {
-            ClashLog.w("BrowserActivity: Proxy override feature not supported on this device")
-            ClashLog.w("Proxy override feature not supported on this device")
-            runOnUiThread {
-                Toast.makeText(this@BrowserActivity, "设备不支持代理功能", Toast.LENGTH_LONG).show()
-            }
         }
-        
-        ClashLog.d("BrowserActivity: === PROXY SETUP END ===")
     }
 
     private fun testProxyConnectivity(port: Int) {
