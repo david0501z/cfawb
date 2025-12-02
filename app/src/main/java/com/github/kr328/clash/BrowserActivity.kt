@@ -23,6 +23,8 @@ import android.view.inputmethod.InputMethodManager
 import android.webkit.*
 import android.widget.*
 import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.webkit.ProxyConfig
 import androidx.webkit.ProxyController
 import androidx.webkit.WebViewFeature
@@ -1079,7 +1081,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
     }
 
     private fun testProxyConnectivity(port: Int) {
-        lifecycleScope.launch {
+        lifecycleScope.launch(Dispatchers.IO) {
             try {
                 ClashLog.d("BrowserActivity: Testing proxy connectivity on port $port...")
                 ClashLog.d("Testing proxy connectivity on port $port...")
@@ -1093,7 +1095,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 ClashLog.d("BrowserActivity: Connectivity test success - port: $port, connectTimeMs: $connectTime, localAddress: ${socket.localAddress}, remoteAddress: ${socket.remoteSocketAddress}")
                     
                     ClashLog.d("Proxy is reachable on port $port (connection time: ${connectTime}ms)")
-                    runOnUiThread {
+                    withContext(Dispatchers.Main) {
                         Toast.makeText(this@BrowserActivity, "代理连接正常 (${connectTime}ms)", Toast.LENGTH_SHORT).show()
                     }
                 }
@@ -1106,7 +1108,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 )
                 ClashLog.e("BrowserActivity: Connectivity test failed - $errorDetails")
                 ClashLog.e("Proxy connectivity test failed", e)
-                runOnUiThread {
+                withContext(Dispatchers.Main) {
                     Toast.makeText(this@BrowserActivity, "代理连接失败: $errorMessage", Toast.LENGTH_LONG).show()
                 }
             }
