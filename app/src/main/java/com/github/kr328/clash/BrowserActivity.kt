@@ -524,9 +524,15 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             // Update current tab index
             currentTabIndex = index
 
-            // Update URL input with current URL
-            design.urlInput.setText(newTab.webView.url ?: "")
-            
+            // Update URL input with current URL from tab data (not from webView.url which may be null)
+            // Use the stored URL in the tab, fallback to webView.url, fallback to empty string
+            val urlToDisplay = if (newTab.url.isNotEmpty()) {
+                newTab.url
+            } else {
+                newTab.webView.url ?: ""
+            }
+            design.urlInput.setText(urlToDisplay)
+
             // Update tab view appearance to show active tab
             for (i in tabs.indices) {
                 tabs[i].tabView.isSelected = (i == currentTabIndex)
@@ -541,14 +547,13 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             if (index < 0 || index >= tabs.size) return
 
             val tabToClose = tabs[index]
-            
+
             // Remove WebView from container
             design.webViewContainer.removeView(tabToClose.webView)
-            
-            
+
             // Remove tab from tabs list
             tabs.removeAt(index)
-            
+
             // If we closed the current tab, switch to another tab
             if (index == currentTabIndex) {
                 if (tabs.isNotEmpty()) {
@@ -563,7 +568,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 // If we closed a tab before the current tab, adjust the current tab index
                 currentTabIndex--
             }
-            
+
             // Update tabs count
             updateTabsCount(design)
         } catch (e: Exception) {
@@ -611,15 +616,19 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 super.onPageStarted(view, url, favicon)
                 isLoading = true
                 design?.progressBar?.visibility = android.view.View.VISIBLE
-                design?.urlInput?.setText(url)
-                
-                // Update tab title
+
+                // Update tab title and URL
                 val currentIndex = tabs.indexOfFirst { it.webView == view }
                 if (currentIndex >= 0) {
                     val title = url?.let { extractDomain(it) } ?: "Loading..."
                     (tabs[currentIndex].tabView as TextView).text = title
                     tabs[currentIndex].title = title
                     tabs[currentIndex].url = url ?: ""
+
+                    // Only update URL input if this is the current tab
+                    if (currentIndex == currentTabIndex) {
+                        design?.urlInput?.setText(url)
+                    }
                 }
             }
 
@@ -627,16 +636,20 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 super.onPageFinished(view, url)
                 isLoading = false
                 design?.progressBar?.visibility = android.view.View.GONE
-                design?.urlInput?.setText(url)
-                
-                // Update tab title
+
+                // Update tab title and URL
                 val currentIndex = tabs.indexOfFirst { it.webView == view }
                 if (currentIndex >= 0) {
                     val title = view?.title?.takeIf { it.isNotEmpty() } ?: url?.let { extractDomain(it) } ?: "New Tab"
                     (tabs[currentIndex].tabView as TextView).text = title
                     tabs[currentIndex].title = title
                     tabs[currentIndex].url = url ?: ""
-                    
+
+                    // Only update URL input if this is the current tab
+                    if (currentIndex == currentTabIndex) {
+                        design?.urlInput?.setText(url)
+                    }
+
                     // Save to history
                     if (url != null) {
                         saveToHistory(title, url)
@@ -878,6 +891,21 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 setPadding(16, 16, 16, 16)
             }
 
+            // Create popup window with increased width first
+            val displayMetrics = resources.displayMetrics
+            val screenWidth = displayMetrics.widthPixels
+            val popupWidth = (screenWidth * 0.8).toInt() // Use 80% of screen width
+
+            val popupWindow = PopupWindow(
+                popupView,
+                popupWidth,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                setBackgroundDrawable(ColorDrawable(android.graphics.Color.WHITE))
+                isOutsideTouchable = true
+                isFocusable = true
+            }
+
             // Add each tab as a view in the popup
             tabs.forEachIndexed { index, tab ->
                 val tabView = LinearLayout(this).apply {
@@ -887,12 +915,13 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                     setOnClickListener {
                         try {
                             switchToTab(design, index)
+                            popupWindow.dismiss()
                         } catch (e: Exception) {
                             Log.e("BrowserActivity", "Error switching tab from popup", e)
                         }
                     }
                 }
-                
+
                 val tabTitle = TextView(this).apply {
                     text = tab.title
                     layoutParams = LinearLayout.LayoutParams(
@@ -902,7 +931,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                     )
                     gravity = Gravity.CENTER_VERTICAL
                 }
-                
+
                 // Remove the switch button since clicking the row will switch tabs
                 val closeButton = ImageButton(this).apply {
                     setImageResource(android.R.drawable.ic_menu_close_clear_cancel)
@@ -910,35 +939,37 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                         try {
                             // Close the tab without switching to it
                             closeTab(design, index)
+                            // Dismiss the popup after closing
+                            popupWindow.dismiss()
                         } catch (e: Exception) {
                             Log.e("BrowserActivity", "Error closing tab from popup", e)
                         }
                     }
                     setOnTouchListener { v, event ->
-                        // Stop touch event propagation to prevent switching to the tab when closing
-                        event.action = android.view.MotionEvent.ACTION_CANCEL
-                        false
+                        // Consume the touch event to prevent it from propagating to the parent tabView
+                        when (event.action) {
+                            android.view.MotionEvent.ACTION_DOWN -> {
+                                // Mark that we're handling this event
+                                v.isPressed = true
+                                true
+                            }
+                            android.view.MotionEvent.ACTION_UP -> {
+                                v.isPressed = false
+                                v.performClick()
+                                true
+                            }
+                            android.view.MotionEvent.ACTION_CANCEL -> {
+                                v.isPressed = false
+                                true
+                            }
+                            else -> false
+                        }
                     }
                 }
-                
+
                 tabView.addView(tabTitle)
                 tabView.addView(closeButton)
                 popupView.addView(tabView)
-            }
-
-            // Create popup window with increased width
-            val displayMetrics = resources.displayMetrics
-            val screenWidth = displayMetrics.widthPixels
-            val popupWidth = (screenWidth * 0.8).toInt() // Use 80% of screen width
-            
-            val popupWindow = PopupWindow(
-                popupView,
-                popupWidth,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            ).apply {
-                setBackgroundDrawable(ColorDrawable(android.graphics.Color.WHITE))
-                isOutsideTouchable = true
-                isFocusable = true
             }
 
             // Show the popup window at the bottom of the screen, above the navigation bar
