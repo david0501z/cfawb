@@ -689,8 +689,9 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                     // Only update URL input if this is the current tab
                     if (currentIndex == currentTabIndex) {
                         design?.urlInput?.setText(url)
+                        design?.let { updateNavigationButtons(it) }
                         // 更新前进后退按钮状态
-                        updateNavigationButtons(design)
+                        //updateNavigationButtons(design)
                     }
 
                     // Save to history
