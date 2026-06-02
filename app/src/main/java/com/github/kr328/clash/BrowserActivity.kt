@@ -32,6 +32,7 @@ import androidx.webkit.WebViewFeature
 import com.github.kr328.clash.design.BrowserDesign
 import kotlinx.coroutines.isActive
 import java.io.File
+import android.view.ViewTreeObserver
 
 class BrowserActivity : BaseActivity<BrowserDesign>() {
     companion object {
