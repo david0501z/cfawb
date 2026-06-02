@@ -221,7 +221,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
     private val tabs = mutableListOf<BrowserTab>()
     private var currentTabIndex = 0
     private var isLoading = false
-    private var swipeRefreshLayout: androidx.swiperefreshlayout.widget.SwipeRefreshLayout? = null
+    private var swipeRefreshLayout: SwipeRefreshLayout? = null
 
     override suspend fun main() {
         val design = BrowserDesign(this)
@@ -468,11 +468,11 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             tabContainer.addView(tabView)
             tabContainer.addView(closeTabButton)
 
-            val tab = BrowserTab(webView, tabView, tabContainer, url = url)  // 存储tabView和tabContainer以便后续操作
+            val tab = BrowserTab(webView, tabView, tabContainer, url = url)
             tabs.add(tab)
 
-            // Add WebView to container
-            design.webViewContainer.addView(webView)
+            // FIX: 不再立即添加 WebView 到容器，交给 switchToTab 负责添加
+            // design.webViewContainer.addView(webView)   // 已删除
 
             // Switch to the newly created tab
             switchToTab(design, tabs.size - 1)
@@ -514,7 +514,9 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             webView.loadData("<html><body><h1>Failed to create tab</h1><p>Error: ${e.message}</p></body></html>", "text/html", "UTF-8")
             val tab = BrowserTab(webView, TextView(this).apply { text = "Error Tab" }, null, url = url)
             tabs.add(tab)
-            design.webViewContainer.addView(webView)
+            // FIX: 同样不直接添加，由 switchToTab 负责
+            // design.webViewContainer.addView(webView)
+            switchToTab(design, tabs.size - 1)
             updateTabsCount(design)
             tab
         }
@@ -527,24 +529,37 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             val previousTab = tabs.getOrNull(currentTabIndex)
             val newTab = tabs[index]
 
-            // Remove current WebView from container
-            if (previousTab != null) {
-                design.webViewContainer.removeView(previousTab.webView)
+            val container = swipeRefreshLayout
+            if (container == null) {
+                Log.e("BrowserActivity", "SwipeRefreshLayout is null, cannot switch tab")
+                return
             }
 
-            // Add new WebView to container
-            design.webViewContainer.addView(newTab.webView)
+            // 移除当前显示的 WebView（如果存在且属于当前标签）
+            if (previousTab != null && previousTab.webView.parent == container) {
+                container.removeView(previousTab.webView)
+            }
 
-            // Update current tab index
+            // 添加新标签的 WebView（如果还没有被添加到容器中）
+            if (newTab.webView.parent == null) {
+                container.addView(newTab.webView)
+            } else if (newTab.webView.parent != container) {
+                // 理论上不会发生，但以防万一
+                (newTab.webView.parent as? ViewGroup)?.removeView(newTab.webView)
+                container.addView(newTab.webView)
+            }
+
+            // 更新当前标签索引
             currentTabIndex = index
 
-            // 修复地址栏显示问题：优先使用WebView的当前URL，确保显示的是实际加载的页面
-            val urlToDisplay = newTab.webView.url ?: newTab.url ?: ""
-            design.urlInput.setText(urlToDisplay)
+            // FIX: 修复地址栏不更新问题 - 优先使用 WebView 的当前 URL，再使用存储的 URL
+            val currentUrl = newTab.webView.url
+            val urlToDisplay = if (!currentUrl.isNullOrEmpty()) currentUrl else newTab.url
+            design.urlInput.setText(urlToDisplay ?: "")
 
-            // 同时更新标签中存储的URL，保持同步
-            if (newTab.webView.url != null) {
-                newTab.url = newTab.webView.url!!
+            // 同步存储的 URL
+            if (!currentUrl.isNullOrEmpty() && currentUrl != newTab.url) {
+                newTab.url = currentUrl
             }
 
             // Update tab view appearance to show active tab
@@ -565,8 +580,8 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
 
             val tabToClose = tabs[index]
 
-            // Remove WebView from container
-            design.webViewContainer.removeView(tabToClose.webView)
+            // FIX: 从正确的容器（SwipeRefreshLayout）中移除 WebView
+            swipeRefreshLayout?.removeView(tabToClose.webView)
 
             // Remove tab from tabs list
             tabs.removeAt(index)
@@ -674,9 +689,8 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                     // Only update URL input if this is the current tab
                     if (currentIndex == currentTabIndex) {
                         design?.urlInput?.setText(url)
-                        design?.let { updateNavigationButtons(it) }
                         // 更新前进后退按钮状态
-                        //updateNavigationButtons(design)
+                        updateNavigationButtons(design)
                     }
 
                     // Save to history
@@ -916,7 +930,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
 
     // 添加下拉刷新布局
     private fun setupSwipeRefreshLayout(design: BrowserDesign) {
-        swipeRefreshLayout = androidx.swiperefreshlayout.widget.SwipeRefreshLayout(this).apply {
+        swipeRefreshLayout = SwipeRefreshLayout(this).apply {
             setOnRefreshListener {
                 // 下拉刷新时重新加载当前页面
                 val currentTab = tabs.getOrNull(currentTabIndex)
@@ -940,18 +954,20 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             isEnabled = false
         }
         
-        // 将现有的webViewContainer内容转移到SwipeRefreshLayout中
-        val currentWebViews = mutableListOf<View>()
+        // FIX: 将 webViewContainer 中的现有子视图移动到 SwipeRefreshLayout 中
+        // 但注意此时还没有 WebView（因为 WebView 会在 createNewTab 中创建并由 switchToTab 添加）
+        // 不过为了安全，仍处理可能存在的子视图
+        val currentChildren = mutableListOf<View>()
         for (i in 0 until design.webViewContainer.childCount) {
-            currentWebViews.add(design.webViewContainer.getChildAt(i))
+            currentChildren.add(design.webViewContainer.getChildAt(i))
         }
         
         design.webViewContainer.removeAllViews()
         design.webViewContainer.addView(swipeRefreshLayout)
         
-        // 将原有的WebView添加到SwipeRefreshLayout中
-        currentWebViews.forEach { webView ->
-            swipeRefreshLayout?.addView(webView)
+        // 将原有的子视图添加到 SwipeRefreshLayout 中（正常情况下此时为空）
+        currentChildren.forEach { child ->
+            swipeRefreshLayout?.addView(child)
         }
     }
 
