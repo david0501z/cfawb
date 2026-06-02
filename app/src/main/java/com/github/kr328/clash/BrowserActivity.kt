@@ -295,7 +295,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             Log.d("BrowserActivity", "Download button clicked")
             try {
                 // Open download management activity
-                val intent = android.content.Intent(this, DownloadManagerActivity::class.java)
+                val intent = Intent(this, DownloadManagerActivity::class.java)
                 startActivity(intent)
             } catch (e: Exception) {
                 Log.e("BrowserActivity", "Error in download menu button click", e)
@@ -306,7 +306,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             Log.d("BrowserActivity", "History button clicked")
             try {
                 // Open history management activity
-                val intent = android.content.Intent(this, HistoryManagerActivity::class.java)
+                val intent = Intent(this, HistoryManagerActivity::class.java)
                 startActivity(intent)
             } catch (e: Exception) {
                 Log.e("BrowserActivity", "Error in history menu button click", e)
@@ -316,11 +316,9 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
         // Use PopupMenu instead of PopupWindow to avoid view parent issues
         design.menuButton.setOnClickListener {
             try {
-                val popup = android.widget.PopupMenu(this, design.menuButton)
-                val inflater = popup.menuInflater
-                // Since we don't have a menu resource, we'll create menu items programmatically
+                val popup = PopupMenu(this, design.menuButton)
+                // Create menu items programmatically
                 popup.menu.add("关闭").setOnMenuItemClickListener { 
-                    // Close the menu by just returning true
                     finish()
                     true
                 }
@@ -337,15 +335,11 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                     true 
                 }
                 popup.menu.add("返回代理页面").setOnMenuItemClickListener { 
-                    // Return to the main activity (proxy settings) without ending browser
                     try {
                         Log.d("BrowserActivity", "Switching to MainActivity without finishing BrowserActivity")
                         val intent = Intent(this@BrowserActivity, MainActivity::class.java)
-                        // 不结束BrowserActivity，只是切换到后台
                         intent.flags = Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
                         startActivity(intent)
-                        // 将BrowserActivity移到后台而不是结束
-                        //moveTaskToBack(false)
                     } catch (e: Exception) {
                         Log.e("BrowserActivity", "Error switching to MainActivity", e)
                     }
@@ -360,18 +354,15 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
 
         design.closeMenuButton.setOnClickListener {
             // Close the popup menu by dismissing the popup window
-            // We don't want to finish the activity here, just close the menu
             // PopupMenu auto-dismisses, no action needed
         }
 
         design.settingsMenuButton.setOnClickListener {
             Log.d("BrowserActivity", "Settings button clicked")
             try {
-                // 切换到MainActivity但不结束BrowserActivity
                 val intent = Intent(this@BrowserActivity, MainActivity::class.java)
                 intent.flags = Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
                 startActivity(intent)
-                // 将BrowserActivity移到后台
                 moveTaskToBack(false)
             } catch (e: Exception) {
                 Log.e("BrowserActivity", "Error in settings menu button click", e)
@@ -380,7 +371,6 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
 
         design.tabsCountButton.setOnClickListener {
             try {
-                // Show tabs management popup
                 showTabsManagementPopup(design)
             } catch (e: Exception) {
                 Log.e("BrowserActivity", "Error in tabs count button click", e)
@@ -403,9 +393,9 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             }
         }
 
-        // Add keyboard visibility listener - adjust layout when keyboard appears
-        val rootView = findViewById<android.view.View>(android.R.id.content)
-        rootView.viewTreeObserver.addOnGlobalLayoutListener(object : android.view.ViewTreeObserver.OnGlobalLayoutListener {
+        // Add keyboard visibility listener
+        val rootView = findViewById<View>(android.R.id.content)
+        rootView.viewTreeObserver.addOnGlobalLayoutListener(object : ViewTreeObserver.OnGlobalLayoutListener {
             override fun onGlobalLayout() {
                 val rect = android.graphics.Rect()
                 rootView.getWindowVisibleDisplayFrame(rect)
@@ -413,15 +403,13 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 val keypadHeight = screenHeight - rect.bottom
 
                 if (keypadHeight > screenHeight * 0.15) {
-                    // Keyboard is opened - move the bottom navigation up
                     val bottomNav = design.bottomNavContainer
-                    val layoutParams = bottomNav.layoutParams as android.view.ViewGroup.MarginLayoutParams
+                    val layoutParams = bottomNav.layoutParams as ViewGroup.MarginLayoutParams
                     layoutParams.bottomMargin = keypadHeight
                     bottomNav.layoutParams = layoutParams
                 } else {
-                    // Keyboard is closed - reset margins
                     val bottomNav = design.bottomNavContainer
-                    val layoutParams = bottomNav.layoutParams as android.view.ViewGroup.MarginLayoutParams
+                    val layoutParams = bottomNav.layoutParams as ViewGroup.MarginLayoutParams
                     layoutParams.bottomMargin = 0
                     bottomNav.layoutParams = layoutParams
                 }
@@ -436,7 +424,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
     private fun createNewTab(design: BrowserDesign, url: String): BrowserTab {
         return try {
             val webView = WebView(this)
-            setupWebView(webView)
+            setupWebView(webView, design)
 
             // Create a container for the tab with close button
             val tabContainer = LinearLayout(this).apply {
@@ -471,10 +459,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             val tab = BrowserTab(webView, tabView, tabContainer, url = url)
             tabs.add(tab)
 
-            // FIX: 不再立即添加 WebView 到容器，交给 switchToTab 负责添加
-            // design.webViewContainer.addView(webView)   // 已删除
-
-            // Switch to the newly created tab
+            // Switch to the newly created tab (which will add the WebView to the container)
             switchToTab(design, tabs.size - 1)
 
             // Set click listener for tab switching
@@ -487,7 +472,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 }
             }
 
-            // Set click listener for tab closing - capture tabIndex in a final variable to avoid closure issues
+            // Set click listener for tab closing
             val closeTabIndex = tabIndex
             closeTabButton.setOnClickListener {
                 try {
@@ -514,8 +499,6 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             webView.loadData("<html><body><h1>Failed to create tab</h1><p>Error: ${e.message}</p></body></html>", "text/html", "UTF-8")
             val tab = BrowserTab(webView, TextView(this).apply { text = "Error Tab" }, null, url = url)
             tabs.add(tab)
-            // FIX: 同样不直接添加，由 switchToTab 负责
-            // design.webViewContainer.addView(webView)
             switchToTab(design, tabs.size - 1)
             updateTabsCount(design)
             tab
@@ -535,27 +518,24 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 return
             }
 
-            // 移除当前显示的 WebView（如果存在且属于当前标签）
+            // Remove current WebView if it's attached
             if (previousTab != null && previousTab.webView.parent == container) {
                 container.removeView(previousTab.webView)
             }
 
-            // 添加新标签的 WebView（如果还没有被添加到容器中）
+            // Add new WebView if not already attached, or reattach if attached elsewhere
             if (newTab.webView.parent == null) {
                 container.addView(newTab.webView)
             } else if (newTab.webView.parent != container) {
-                // 理论上不会发生，但以防万一
                 (newTab.webView.parent as? ViewGroup)?.removeView(newTab.webView)
                 container.addView(newTab.webView)
             }
 
-            // 更新当前标签索引
             currentTabIndex = index
 
-            // FIX: 修复地址栏不更新问题 - 优先使用 WebView 的当前 URL，再使用存储的 URL
+            // 修复地址栏不更新问题：优先使用 WebView 当前 URL，否则使用存储的 URL
             val currentUrl = newTab.webView.url
-            val urlToDisplay = if (!currentUrl.isNullOrEmpty()) currentUrl else newTab.url
-            design.urlInput.setText(urlToDisplay ?: "")
+            design.urlInput.setText(if (!currentUrl.isNullOrEmpty()) currentUrl else newTab.url)
 
             // 同步存储的 URL
             if (!currentUrl.isNullOrEmpty() && currentUrl != newTab.url) {
@@ -580,7 +560,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
 
             val tabToClose = tabs[index]
 
-            // FIX: 从正确的容器（SwipeRefreshLayout）中移除 WebView
+            // 从正确的容器中移除 WebView
             swipeRefreshLayout?.removeView(tabToClose.webView)
 
             // Remove tab from tabs list
@@ -589,7 +569,6 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             // If we closed the current tab, switch to another tab
             if (index == currentTabIndex) {
                 if (tabs.isNotEmpty()) {
-                    // Switch to the previous tab if available, otherwise the first tab
                     val newTabIndex = if (index > 0) index - 1 else 0
                     switchToTab(design, newTabIndex)
                 } else {
@@ -597,7 +576,6 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                     createNewTab(design, "https://www.google.com")
                 }
             } else if (index < currentTabIndex) {
-                // If we closed a tab before the current tab, adjust the current tab index
                 currentTabIndex--
             }
 
@@ -608,7 +586,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
         }
     }
 
-    private fun setupWebView(webView: WebView) {
+    private fun setupWebView(webView: WebView, design: BrowserDesign) {
         webView.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
@@ -634,11 +612,9 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 val url = request?.url?.toString()
                 Log.d("BrowserActivity", "shouldOverrideUrlLoading: $url")
                 
-                // 处理特殊协议，如 baiduboxapp://
                 if (url != null && url.startsWith("baiduboxapp://")) {
                     Log.d("BrowserActivity", "Intercepted baiduboxapp URL: $url")
                     try {
-                        // 显示对话框询问用户是否要打开对应的应用
                         showProtocolHandlerDialog(url, view)
                         return true
                     } catch (e: Exception) {
@@ -646,16 +622,14 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                         return true
                     }
                 }
-                
                 return false
             }
             
             override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                 super.onPageStarted(view, url, favicon)
                 isLoading = true
-                design?.progressBar?.visibility = android.view.View.VISIBLE
+                design.progressBar.visibility = View.VISIBLE
 
-                // Update tab title and URL
                 val currentIndex = tabs.indexOfFirst { it.webView == view }
                 if (currentIndex >= 0) {
                     val title = url?.let { extractDomain(it) } ?: "Loading..."
@@ -663,9 +637,8 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                     tabs[currentIndex].title = title
                     tabs[currentIndex].url = url ?: ""
 
-                    // Only update URL input if this is the current tab
                     if (currentIndex == currentTabIndex) {
-                        design?.urlInput?.setText(url)
+                        design.urlInput.setText(url)
                     }
                 }
             }
@@ -673,12 +646,9 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
                 isLoading = false
-                design?.progressBar?.visibility = android.view.View.GONE
-                
-                // 停止下拉刷新
+                design.progressBar.visibility = View.GONE
                 swipeRefreshLayout?.isRefreshing = false
 
-                // Update tab title and URL
                 val currentIndex = tabs.indexOfFirst { it.webView == view }
                 if (currentIndex >= 0) {
                     val title = view?.title?.takeIf { it.isNotEmpty() } ?: url?.let { extractDomain(it) } ?: "New Tab"
@@ -686,15 +656,12 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                     tabs[currentIndex].title = title
                     tabs[currentIndex].url = url ?: ""
 
-                    // Only update URL input if this is the current tab
                     if (currentIndex == currentTabIndex) {
-                        design?.urlInput?.setText(url)
-                        design?.let { updateNavigationButtons(it) }
-                        // 更新前进后退按钮状态
-                        //updateNavigationButtons(design)
+                        design.urlInput.setText(url)
+                        // 修复：使用安全调用，避免 design 为 null 导致崩溃
+                        design.let { updateNavigationButtons(it) }
                     }
 
-                    // Save to history
                     if (url != null) {
                         saveToHistory(title, url)
                     }
@@ -708,57 +675,39 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             ) {
                 super.onReceivedError(view, request, error)
                 isLoading = false
-                design?.progressBar?.visibility = android.view.View.GONE
-                
+                design.progressBar.visibility = View.GONE
                 val url = request?.url?.toString()
                 Log.e("BrowserActivity", "Loading error for URL: $url, error: ${error?.description}")
             }
         }
 
-        // Enable file upload support
         webView.webChromeClient = object : WebChromeClient() {
-            private var filePathCallback: ValueCallback<Array<Uri>?>? = null
-            private var cameraPhotoPath: String? = null
-            
             override fun onProgressChanged(view: WebView?, newProgress: Int) {
                 super.onProgressChanged(view, newProgress)
-                design?.progressBar?.progress = newProgress
+                design.progressBar.progress = newProgress
             }
             
-            // For Android 5.0+
             override fun onShowFileChooser(
                 webView: WebView,
                 filePathCallback: ValueCallback<Array<Uri>?>,
                 fileChooserParams: FileChooserParams
             ): Boolean {
-                // Save the callback for later use
                 this@BrowserActivity.filePathCallback = filePathCallback
-
-                // Create an intent to open the file chooser
                 val intent = fileChooserParams.createIntent()
-                // 修复文件上传问题：允许选择多个文件
                 intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
-                
                 try {
-                    // Start the file chooser activity
                     startActivityForResult(intent, REQUEST_CODE_FILE_CHOOSER)
                 } catch (e: Exception) {
-                    // If the intent fails, send null back to the WebView
-                    this.filePathCallback = null
+                    this@BrowserActivity.filePathCallback = null
                     filePathCallback.onReceiveValue(null)
                     return false
                 }
-
                 return true
             }
         }
         
-        // Enable download support
         webView.setDownloadListener { url, userAgent, contentDisposition, mimeType, contentLength ->
-            // Handle download request
-            // Check if the URL is a blob URL, which cannot be handled by DownloadManager directly
             if (url.startsWith("blob:")) {
-                // For blob URLs, use JavaScript to extract the blob data and convert to data URL
                 val js = """
                     (function() {
                         console.log('Processing blob download: $url');
@@ -795,29 +744,24 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                     Log.d("BrowserActivity", "JavaScript execution result: $result")
                 }
             } else {
-                // Use system download manager for regular URLs
                 downloadFileViaApp(url, userAgent, contentDisposition, mimeType)
             }
         }
     }
     
-    // 添加物理返回键处理
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (keyCode == KeyEvent.KEYCODE_BACK) {
             try {
                 Log.d("BrowserActivity", "Back key pressed")
-                // 检查当前WebView是否能后退
                 val currentTab = tabs.getOrNull(currentTabIndex)
                 if (currentTab?.webView?.canGoBack() == true) {
                     currentTab.webView.goBack()
                     return true
                 } else {
-                    // 不能后退时，切换到MainActivity但不结束BrowserActivity
                     Log.d("BrowserActivity", "Cannot go back further, switching to MainActivity")
                     val intent = Intent(this@BrowserActivity, MainActivity::class.java)
                     intent.flags = Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
                     startActivity(intent)
-                    // 将BrowserActivity移到后台
                     moveTaskToBack(false)
                     return true
                 }
@@ -829,12 +773,10 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
     }
 
     private fun setupProxy() {
-        // Check if ProxyController is supported
         if (WebViewFeature.isFeatureSupported(WebViewFeature.PROXY_OVERRIDE)) {
             val proxyConfig = ProxyConfig.Builder()
-                .addProxyRule("127.0.0.1:7890") // Clash Meta default HTTP proxy port
+                .addProxyRule("127.0.0.1:7890")
                 .build()
-            
             ProxyController.getInstance().setProxyOverride(proxyConfig, java.util.concurrent.Executors.newSingleThreadExecutor()) {
                 // Proxy override applied
             }
@@ -847,53 +789,38 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             if (!url.startsWith("http://") && !url.startsWith("https://")) {
                 url = "https://$url"
             }
-            
             val currentTab = tabs.getOrNull(currentTabIndex)
             if (currentTab != null) {
                 Log.d("BrowserActivity", "Loading URL in current tab ($currentTabIndex): $url")
                 currentTab.webView.loadUrl(url)
-                // 更新当前标签页的URL信息
                 currentTab.url = url
             } else {
                 Log.w("BrowserActivity", "No current tab available for URL loading")
             }
-            
-            // Hide keyboard
             val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
             imm.hideSoftInputFromWindow(design.urlInput.windowToken, 0)
         }
     }
 
     private fun saveToHistory(title: String, url: String) {
-        // Save to history using SharedPreferences
         val prefs = getSharedPreferences("browser_history", Context.MODE_PRIVATE)
         val history = prefs.getStringSet("history", mutableSetOf())?.toMutableSet() ?: mutableSetOf()
-        
-        // Create history entry with timestamp
         val timestamp = System.currentTimeMillis()
         val historyEntry = "$timestamp|$title|$url"
-        
-        // Add new entry
         history.add(historyEntry)
-        
-        // Limit history to 100 entries
         if (history.size > 100) {
-            // Sort by timestamp and remove oldest entries
             val sortedHistory = history.sortedBy { entry ->
                 entry.substringBefore("|").toLongOrNull() ?: 0L
             }
             val entriesToRemove = sortedHistory.take(history.size - 100)
             history.removeAll(entriesToRemove.toSet())
         }
-        
-        // Save back to SharedPreferences
         prefs.edit().putStringSet("history", history).apply()
     }
     
     private fun getHistory(): List<HistoryEntry> {
         val prefs = getSharedPreferences("browser_history", Context.MODE_PRIVATE)
         val historySet = prefs.getStringSet("history", mutableSetOf()) ?: setOf()
-        
         return historySet.mapNotNull { entry ->
             val parts = entry.split("|", limit = 3)
             if (parts.size >= 3) {
@@ -902,7 +829,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             } else {
                 null
             }
-        }.sortedByDescending { it.timestamp } // Sort by most recent first
+        }.sortedByDescending { it.timestamp }
     }
     
     data class HistoryEntry(
@@ -913,7 +840,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
 
     private fun extractDomain(url: String): String {
         return try {
-            val uri = android.net.Uri.parse(url)
+            val uri = Uri.parse(url)
             uri.host ?: url
         } catch (e: Exception) {
             url
@@ -922,18 +849,12 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
 
     private fun updateTabsCount(design: BrowserDesign) {
         val tabCount = tabs.size
-        val tabCountText = if (tabCount > 0) "⓿".replace("0", tabCount.toString()) else "⓪"
         design.tabsCountButton.contentDescription = "打开的页签数量: $tabCount"
-        // We'll update the button text to show the tab count
-        // Since we can't directly change the icon to show the number, we'll keep the icon
-        // but we could use a different approach if needed
     }
 
-    // 添加下拉刷新布局
     private fun setupSwipeRefreshLayout(design: BrowserDesign) {
         swipeRefreshLayout = SwipeRefreshLayout(this).apply {
             setOnRefreshListener {
-                // 下拉刷新时重新加载当前页面
                 val currentTab = tabs.getOrNull(currentTabIndex)
                 if (currentTab != null) {
                     Log.d("BrowserActivity", "下拉刷新: 重新加载页面 ${currentTab.webView.url}")
@@ -942,61 +863,44 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                     isRefreshing = false
                 }
             }
-            
-            // 设置刷新指示器颜色
             setColorSchemeResources(
                 android.R.color.holo_blue_bright,
                 android.R.color.holo_green_light,
                 android.R.color.holo_orange_light,
                 android.R.color.holo_red_light
             )
-            
-            // 初始状态下禁用下拉刷新，直到WebView滚动到顶部
             isEnabled = false
         }
         
-        // FIX: 将 webViewContainer 中的现有子视图移动到 SwipeRefreshLayout 中
-        // 但注意此时还没有 WebView（因为 WebView 会在 createNewTab 中创建并由 switchToTab 添加）
-        // 不过为了安全，仍处理可能存在的子视图
+        // 将现有的 webViewContainer 中的子视图转移到 SwipeRefreshLayout 中
         val currentChildren = mutableListOf<View>()
         for (i in 0 until design.webViewContainer.childCount) {
             currentChildren.add(design.webViewContainer.getChildAt(i))
         }
-        
         design.webViewContainer.removeAllViews()
         design.webViewContainer.addView(swipeRefreshLayout)
-        
-        // 将原有的子视图添加到 SwipeRefreshLayout 中（正常情况下此时为空）
         currentChildren.forEach { child ->
             swipeRefreshLayout?.addView(child)
         }
     }
 
-    // 更新前进后退按钮状态
     private fun updateNavigationButtons(design: BrowserDesign) {
         val currentTab = tabs.getOrNull(currentTabIndex)
-        if (currentTab != null) {
-            design.backButton.isEnabled = currentTab.webView.canGoBack()
-            design.forwardButton.isEnabled = currentTab.webView.canGoForward()
-        } else {
-            design.backButton.isEnabled = false
-            design.forwardButton.isEnabled = false
-        }
+        design.backButton.isEnabled = currentTab?.webView?.canGoBack() == true
+        design.forwardButton.isEnabled = currentTab?.webView?.canGoForward() == true
     }
     
     private fun showTabsManagementPopup(design: BrowserDesign) {
         try {
-            // Create a popup window to show all tabs
             val popupView = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 setBackgroundResource(android.R.drawable.dialog_holo_light_frame)
                 setPadding(16, 16, 16, 16)
             }
 
-            // Create popup window with increased width first
             val displayMetrics = resources.displayMetrics
             val screenWidth = displayMetrics.widthPixels
-            val popupWidth = (screenWidth * 0.8).toInt() // Use 80% of screen width
+            val popupWidth = (screenWidth * 0.8).toInt()
 
             val popupWindow = PopupWindow(
                 popupView,
@@ -1008,12 +912,10 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 isFocusable = true
             }
 
-            // Add each tab as a view in the popup
             tabs.forEachIndexed { index, tab ->
                 val tabView = LinearLayout(this).apply {
                     orientation = LinearLayout.HORIZONTAL
                     setPadding(8, 8, 8, 8)
-                    // Set click listener for the entire row to switch to the tab
                     setOnClickListener {
                         try {
                             switchToTab(design, index)
@@ -1034,31 +936,18 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                     gravity = Gravity.CENTER_VERTICAL
                 }
 
-                // Remove the switch button since clicking the row will switch tabs
                 val closeButton = ImageButton(this).apply {
                     setImageResource(android.R.drawable.ic_menu_close_clear_cancel)
                     setOnClickListener { view ->
-                        try {
-                            // 修复关闭按钮不生效问题：阻止事件冒泡
-                            view?.let { 
-                                it.cancelPendingInputEvents()
-                            }
-                            // Close the tab without switching to it
-                            closeTab(design, index)
-                            // Dismiss the popup after closing
-                            popupWindow.dismiss()
-                        } catch (e: Exception) {
-                            Log.e("BrowserActivity", "Error closing tab from popup", e)
-                        }
+                        view?.cancelPendingInputEvents()
+                        closeTab(design, index)
+                        popupWindow.dismiss()
                     }
-                    // 添加点击事件拦截，确保关闭按钮优先处理
                     isClickable = true
                     isFocusable = true
                     setOnTouchListener { v, event ->
-                        // Consume the touch event to prevent it from propagating to the parent tabView
                         when (event.action) {
                             android.view.MotionEvent.ACTION_DOWN -> {
-                                // Mark that we're handling this event
                                 v.isPressed = true
                                 v.parent?.requestDisallowInterceptTouchEvent(true)
                                 true
@@ -1084,12 +973,11 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 popupView.addView(tabView)
             }
 
-            // Show the popup window at the bottom of the screen, above the navigation bar
             popupWindow.showAtLocation(
                 design.root,
                 Gravity.BOTTOM or Gravity.END,
                 0,
-                100  // 100dp margin from bottom to keep it above the bottom navigation
+                100
             )
         } catch (e: Exception) {
             Log.e("BrowserActivity", "Error showing tabs management popup", e)
@@ -1110,89 +998,63 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
         }
     }
     
-    override fun onNewIntent(intent: android.content.Intent?) {
+    override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
-        // Handle the new intent here
-        // For example, you might want to load a new URL or refresh the current page
         val currentTab = tabs.getOrNull(currentTabIndex)
         val newUrl = intent?.getStringExtra("url")
         if (currentTab != null && !newUrl.isNullOrBlank()) {
-            // Load the new URL in the current tab
             currentTab.webView.loadUrl(newUrl)
         } else if (currentTab != null) {
-            // Bring the browser to front
             currentTab.webView.requestFocus()
         }
     }
     
     override fun onResume() {
         super.onResume()
-        // Ensure the current tab is properly focused when returning to the activity
         val currentTab = tabs.getOrNull(currentTabIndex)
         currentTab?.webView?.requestFocus()
     }
 
-    // Add a property to hold the filePathCallback at class level
     private var filePathCallback: ValueCallback<Array<Uri>?>? = null
 
-    // 请求文件存储权限
     private fun requestStoragePermissions() {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
             val permissions = arrayOf(
                 android.Manifest.permission.READ_EXTERNAL_STORAGE,
                 android.Manifest.permission.WRITE_EXTERNAL_STORAGE
             )
-            
             val permissionsToRequest = permissions.filter { 
-                android.content.pm.PackageManager.PERMISSION_GRANTED != 
-                ContextCompat.checkSelfPermission(this, it) 
+                ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
             }.toTypedArray()
-            
             if (permissionsToRequest.isNotEmpty()) {
-                ActivityCompat.requestPermissions(
-                    this, 
-                    permissionsToRequest, 
-                    REQUEST_CODE_STORAGE_PERMISSIONS
-                )
+                ActivityCompat.requestPermissions(this, permissionsToRequest, REQUEST_CODE_STORAGE_PERMISSIONS)
             }
         }
     }
 
-    // 处理权限请求结果
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        
         when (requestCode) {
             REQUEST_CODE_STORAGE_PERMISSIONS -> {
-                if (grantResults.isNotEmpty() && grantResults.all { it == android.content.pm.PackageManager.PERMISSION_GRANTED }) {
-                    // 权限已授予
+                if (grantResults.isNotEmpty() && grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
                     Log.d("BrowserActivity", "存储权限已授予")
                 } else {
-                    // 权限被拒绝
                     Log.w("BrowserActivity", "存储权限被拒绝")
-                    android.widget.Toast.makeText(
-                        this, 
-                        "文件上传和下载功能可能需要存储权限才能正常工作", 
-                        android.widget.Toast.LENGTH_LONG
-                    ).show()
+                    Toast.makeText(this, "文件上传和下载功能可能需要存储权限才能正常工作", Toast.LENGTH_LONG).show()
                 }
             }
         }
     }
 
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: android.content.Intent?) {
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        
         if (requestCode == REQUEST_CODE_FILE_CHOOSER) {
-            if (resultCode == RESULT_OK) {
-                // Handle file chooser result
+            if (resultCode == Activity.RESULT_OK) {
                 if (filePathCallback != null) {
                     val results = if (data == null) {
                         null
                     } else {
-                        // 修复文件上传问题：支持多个文件选择
                         if (data.clipData != null) {
-                            // 多个文件
                             val uris = mutableListOf<Uri>()
                             val clipData = data.clipData!!
                             for (i in 0 until clipData.itemCount) {
@@ -1201,7 +1063,6 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                             }
                             uris.toTypedArray()
                         } else if (data.data != null) {
-                            // 单个文件
                             arrayOf(data.data!!)
                         } else {
                             null
@@ -1211,7 +1072,6 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                     filePathCallback = null
                 }
             } else {
-                // User cancelled the file selection
                 filePathCallback?.onReceiveValue(null)
                 filePathCallback = null
             }
@@ -1220,28 +1080,19 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
     
     private fun downloadFileViaApp(url: String, userAgent: String, contentDisposition: String, mimeType: String) {
         try {
-            // Determine filename from content-disposition header or URL
             var filename = URLUtil.guessFileName(url, contentDisposition, mimeType)
             if (filename.isEmpty()) {
                 filename = "downloaded_file"
             }
-
-            // Create download directory in public downloads folder for better accessibility
             val downloadDir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "cfawb")
             if (!downloadDir.exists()) {
                 downloadDir.mkdirs()
             }
-
             val downloadManager = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-
-            // Download original URL
             downloadOriginalFile(downloadManager, url, userAgent, filename, downloadDir, mimeType)
-            
-            // Download proxy version
             val proxyUrl = "https://g.david525.cloudns.ch/p?u=$url"
             val proxyFilename = "d_$filename"
             downloadProxyFile(downloadManager, proxyUrl, userAgent, proxyFilename, downloadDir, mimeType)
-
         } catch (e: Exception) {
             e.printStackTrace()
             val errorMessage = "下载出错: ${e.message ?: "Unknown error"}"
@@ -1270,17 +1121,11 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
 
     private fun downloadProxyFile(downloadManager: DownloadManager, proxyUrl: String, userAgent: String, filename: String, downloadDir: File, mimeType: String) {
         try {
-            // 输出代理URL到日志
             Log.d("BrowserActivity", "代理下载URL: $proxyUrl")
-            
-            // 复制代理URL到剪贴板
             val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             val clip = ClipData.newPlainText("代理下载URL", proxyUrl)
             clipboard.setPrimaryClip(clip)
-            
-            // 显示包含代理URL的Toast消息
             Toast.makeText(this@BrowserActivity, "代理URL已复制到剪贴板:\n$proxyUrl", Toast.LENGTH_LONG).show()
-            
             val request = DownloadManager.Request(Uri.parse(proxyUrl)).apply {
                 setTitle(filename)
                 setDescription("Downloading proxy version: $proxyUrl")
