@@ -36,6 +36,7 @@ dependencies {
     implementation(libs.androidx.recyclerview)
     implementation(libs.google.material)
     implementation("androidx.webkit:webkit:1.4.0")
+    implementation(libs.androidx.swiperefreshlayout)
     
     // Add OkHttp dependency for BrowserActivity
     implementation(platform("com.squareup.okhttp3:okhttp-bom:4.12.0"))

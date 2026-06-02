@@ -22,6 +22,8 @@ import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.webkit.*
 import android.widget.*
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import androidx.webkit.ProxyConfig
@@ -34,6 +36,7 @@ import java.io.File
 class BrowserActivity : BaseActivity<BrowserDesign>() {
     companion object {
         private const val REQUEST_CODE_FILE_CHOOSER = 1001
+        private const val REQUEST_CODE_STORAGE_PERMISSIONS = 1002
     }
     
     private data class BrowserTab(
@@ -229,6 +232,9 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
 
         // 初始化下拉刷新布局
         setupSwipeRefreshLayout(design)
+
+        // 请求文件存储权限
+        requestStoragePermissions()
 
         // Create first tab - check if we have a URL from the intent
         val initialUrl = intent.getStringExtra("url") ?: "https://www.google.com"
@@ -711,9 +717,12 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             ): Boolean {
                 // Save the callback for later use
                 this@BrowserActivity.filePathCallback = filePathCallback
-                
+
                 // Create an intent to open the file chooser
                 val intent = fileChooserParams.createIntent()
+                // 修复文件上传问题：允许选择多个文件
+                intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+                
                 try {
                     // Start the file chooser activity
                     startActivityForResult(intent, REQUEST_CODE_FILE_CHOOSER)
@@ -723,7 +732,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                     filePathCallback.onReceiveValue(null)
                     return false
                 }
-                
+
                 return true
             }
         }
@@ -1108,6 +1117,51 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
     // Add a property to hold the filePathCallback at class level
     private var filePathCallback: ValueCallback<Array<Uri>?>? = null
 
+    // 请求文件存储权限
+    private fun requestStoragePermissions() {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+            val permissions = arrayOf(
+                android.Manifest.permission.READ_EXTERNAL_STORAGE,
+                android.Manifest.permission.WRITE_EXTERNAL_STORAGE
+            )
+            
+            val permissionsToRequest = permissions.filter { 
+                android.content.pm.PackageManager.PERMISSION_GRANTED != 
+                ContextCompat.checkSelfPermission(this, it) 
+            }.toTypedArray()
+            
+            if (permissionsToRequest.isNotEmpty()) {
+                ActivityCompat.requestPermissions(
+                    this, 
+                    permissionsToRequest, 
+                    REQUEST_CODE_STORAGE_PERMISSIONS
+                )
+            }
+        }
+    }
+
+    // 处理权限请求结果
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        
+        when (requestCode) {
+            REQUEST_CODE_STORAGE_PERMISSIONS -> {
+                if (grantResults.isNotEmpty() && grantResults.all { it == android.content.pm.PackageManager.PERMISSION_GRANTED }) {
+                    // 权限已授予
+                    Log.d("BrowserActivity", "存储权限已授予")
+                } else {
+                    // 权限被拒绝
+                    Log.w("BrowserActivity", "存储权限被拒绝")
+                    android.widget.Toast.makeText(
+                        this, 
+                        "文件上传和下载功能可能需要存储权限才能正常工作", 
+                        android.widget.Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+        }
+    }
+
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: android.content.Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         
@@ -1115,10 +1169,25 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             if (resultCode == RESULT_OK) {
                 // Handle file chooser result
                 if (filePathCallback != null) {
-                    val results = if (data == null || data.data == null) {
+                    val results = if (data == null) {
                         null
                     } else {
-                        arrayOf(data.data!!)
+                        // 修复文件上传问题：支持多个文件选择
+                        if (data.clipData != null) {
+                            // 多个文件
+                            val uris = mutableListOf<Uri>()
+                            val clipData = data.clipData!!
+                            for (i in 0 until clipData.itemCount) {
+                                val uri = clipData.getItemAt(i).uri
+                                uris.add(uri)
+                            }
+                            uris.toTypedArray()
+                        } else if (data.data != null) {
+                            // 单个文件
+                            arrayOf(data.data!!)
+                        } else {
+                            null
+                        }
                     }
                     filePathCallback?.onReceiveValue(results)
                     filePathCallback = null

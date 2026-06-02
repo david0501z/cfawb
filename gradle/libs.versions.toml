@@ -12,6 +12,7 @@ coordinator = "1.2.0"
 recyclerview = "1.2.1"
 viewpager = "1.0.0"
 material = "1.6.1"
+swiperefreshlayout = "1.1.0"
 serialization = "1.3.3"
 kaidl = "1.15"
 room = "2.4.2"
@@ -36,6 +37,7 @@ androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref =
 androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
 androidx-room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
 google-material = { module = "com.google.android.material:material", version.ref = "material" }
+androidx-swiperefreshlayout = { module = "androidx.swiperefreshlayout:swiperefreshlayout", version.ref = "swiperefreshlayout" }
 kaidl-compiler = { module = "com.github.kr328.kaidl:kaidl", version.ref = "kaidl" }
 kaidl-runtime = { module = "com.github.kr328.kaidl:kaidl-runtime", version.ref = "kaidl" }
 rikkax-multiprocess = { module = "dev.rikka.rikkax.preference:multiprocess", version.ref = "multiprocess" }
