@@ -23,6 +23,7 @@ import android.view.inputmethod.InputMethodManager
 import android.webkit.*
 import android.widget.*
 import androidx.lifecycle.lifecycleScope
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import androidx.webkit.ProxyConfig
 import androidx.webkit.ProxyController
 import androidx.webkit.WebViewFeature
@@ -217,6 +218,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
     private val tabs = mutableListOf<BrowserTab>()
     private var currentTabIndex = 0
     private var isLoading = false
+    private var swipeRefreshLayout: androidx.swiperefreshlayout.widget.SwipeRefreshLayout? = null
 
     override suspend fun main() {
         val design = BrowserDesign(this)
@@ -224,6 +226,9 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
         setContentDesign(design)
 
         setupProxy()
+
+        // 初始化下拉刷新布局
+        setupSwipeRefreshLayout(design)
 
         // Create first tab - check if we have a URL from the intent
         val initialUrl = intent.getStringExtra("url") ?: "https://www.google.com"
@@ -491,6 +496,9 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
 
             // Update tabs count
             updateTabsCount(design)
+            
+            // 更新前进后退按钮状态
+            updateNavigationButtons(design)
 
             tab
         } catch (e: Exception) {
@@ -524,19 +532,22 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             // Update current tab index
             currentTabIndex = index
 
-            // Update URL input with current URL from tab data (not from webView.url which may be null)
-            // Use the stored URL in the tab, fallback to webView.url, fallback to empty string
-            val urlToDisplay = if (newTab.url.isNotEmpty()) {
-                newTab.url
-            } else {
-                newTab.webView.url ?: ""
-            }
+            // 修复地址栏显示问题：优先使用WebView的当前URL，确保显示的是实际加载的页面
+            val urlToDisplay = newTab.webView.url ?: newTab.url ?: ""
             design.urlInput.setText(urlToDisplay)
+
+            // 同时更新标签中存储的URL，保持同步
+            if (newTab.webView.url != null) {
+                newTab.url = newTab.webView.url!!
+            }
 
             // Update tab view appearance to show active tab
             for (i in tabs.indices) {
                 tabs[i].tabView.isSelected = (i == currentTabIndex)
             }
+
+            // 更新前进后退按钮状态
+            updateNavigationButtons(design)
         } catch (e: Exception) {
             Log.e("BrowserActivity", "Error switching tab", e)
         }
@@ -587,6 +598,12 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             displayZoomControls = false
             setSupportZoom(true)
         }
+
+        // 设置WebView的滚动监听，用于控制下拉刷新
+        webView.viewTreeObserver.addOnScrollChangedListener {
+            val canScrollUp = webView.canScrollVertically(-1)
+            swipeRefreshLayout?.isEnabled = canScrollUp
+        }
         
         // Add JavaScript interface for handling blob downloads
         webView.addJavascriptInterface(BlobDownloadInterface(), "AndroidInterface")
@@ -636,6 +653,9 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 super.onPageFinished(view, url)
                 isLoading = false
                 design?.progressBar?.visibility = android.view.View.GONE
+                
+                // 停止下拉刷新
+                swipeRefreshLayout?.isRefreshing = false
 
                 // Update tab title and URL
                 val currentIndex = tabs.indexOfFirst { it.webView == view }
@@ -648,6 +668,8 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                     // Only update URL input if this is the current tab
                     if (currentIndex == currentTabIndex) {
                         design?.urlInput?.setText(url)
+                        // 更新前进后退按钮状态
+                        updateNavigationButtons(design)
                     }
 
                     // Save to history
@@ -881,6 +903,59 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
         // Since we can't directly change the icon to show the number, we'll keep the icon
         // but we could use a different approach if needed
     }
+
+    // 添加下拉刷新布局
+    private fun setupSwipeRefreshLayout(design: BrowserDesign) {
+        swipeRefreshLayout = androidx.swiperefreshlayout.widget.SwipeRefreshLayout(this).apply {
+            setOnRefreshListener {
+                // 下拉刷新时重新加载当前页面
+                val currentTab = tabs.getOrNull(currentTabIndex)
+                if (currentTab != null) {
+                    Log.d("BrowserActivity", "下拉刷新: 重新加载页面 ${currentTab.webView.url}")
+                    currentTab.webView.reload()
+                } else {
+                    isRefreshing = false
+                }
+            }
+            
+            // 设置刷新指示器颜色
+            setColorSchemeResources(
+                android.R.color.holo_blue_bright,
+                android.R.color.holo_green_light,
+                android.R.color.holo_orange_light,
+                android.R.color.holo_red_light
+            )
+            
+            // 初始状态下禁用下拉刷新，直到WebView滚动到顶部
+            isEnabled = false
+        }
+        
+        // 将现有的webViewContainer内容转移到SwipeRefreshLayout中
+        val currentWebViews = mutableListOf<View>()
+        for (i in 0 until design.webViewContainer.childCount) {
+            currentWebViews.add(design.webViewContainer.getChildAt(i))
+        }
+        
+        design.webViewContainer.removeAllViews()
+        design.webViewContainer.addView(swipeRefreshLayout)
+        
+        // 将原有的WebView添加到SwipeRefreshLayout中
+        currentWebViews.forEach { webView ->
+            swipeRefreshLayout?.addView(webView)
+        }
+    }
+
+    // 更新前进后退按钮状态
+    private fun updateNavigationButtons(design: BrowserDesign) {
+        val currentTab = tabs.getOrNull(currentTabIndex)
+        if (currentTab != null) {
+            design.backButton.isEnabled = currentTab.webView.canGoBack()
+            design.forwardButton.isEnabled = currentTab.webView.canGoForward()
+        } else {
+            design.backButton.isEnabled = false
+            design.forwardButton.isEnabled = false
+        }
+    }
     
     private fun showTabsManagementPopup(design: BrowserDesign) {
         try {
@@ -937,6 +1012,10 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                     setImageResource(android.R.drawable.ic_menu_close_clear_cancel)
                     setOnClickListener { view ->
                         try {
+                            // 修复关闭按钮不生效问题：阻止事件冒泡
+                            view?.let { 
+                                it.cancelPendingInputEvents()
+                            }
                             // Close the tab without switching to it
                             closeTab(design, index)
                             // Dismiss the popup after closing
@@ -945,21 +1024,27 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                             Log.e("BrowserActivity", "Error closing tab from popup", e)
                         }
                     }
+                    // 添加点击事件拦截，确保关闭按钮优先处理
+                    isClickable = true
+                    isFocusable = true
                     setOnTouchListener { v, event ->
                         // Consume the touch event to prevent it from propagating to the parent tabView
                         when (event.action) {
                             android.view.MotionEvent.ACTION_DOWN -> {
                                 // Mark that we're handling this event
                                 v.isPressed = true
+                                v.parent?.requestDisallowInterceptTouchEvent(true)
                                 true
                             }
                             android.view.MotionEvent.ACTION_UP -> {
                                 v.isPressed = false
                                 v.performClick()
+                                v.parent?.requestDisallowInterceptTouchEvent(false)
                                 true
                             }
                             android.view.MotionEvent.ACTION_CANCEL -> {
                                 v.isPressed = false
+                                v.parent?.requestDisallowInterceptTouchEvent(false)
                                 true
                             }
                             else -> false
