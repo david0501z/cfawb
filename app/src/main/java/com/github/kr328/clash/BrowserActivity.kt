@@ -48,11 +48,10 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
         var url: String = ""
     )
     
-    // JavaScript interface to handle blob downloads
+    // JavaScript interface to handle blob downloads (local blob URLs from JavaScript)
     inner class BlobDownloadInterface {
         @android.webkit.JavascriptInterface
         fun onBlobDataReady(dataUrl: String, contentDisposition: String, mimeType: String) {
-            // Extract filename from contentDisposition
             var filename = "download"
             if (contentDisposition.contains("filename=")) {
                 val startIndex = contentDisposition.indexOf("filename=") + 9
@@ -63,48 +62,29 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                     contentDisposition.substring(startIndex).replace("\"", "")
                 }
             }
-            
-            // Save data URL to file
             saveDataUrlToFile(dataUrl, filename, mimeType)
         }
     }
     
     private fun saveDataUrlToFile(dataUrl: String, filename: String, mimeType: String) {
         try {
-            val logMessage = "Saving blob data to file: $filename"
-            Log.d("BrowserActivity", logMessage)
-            
-            // 复制日志信息到剪贴板
-            copyToClipboard(logMessage)
-            
-            // Remove data URL prefix (e.g., "data:image/png;base64,")
             val commaIndex = dataUrl.indexOf(",")
             if (commaIndex == -1) {
-                val errorMsg = "Invalid data URL format"
-                Log.e("BrowserActivity", errorMsg)
-                copyToClipboard("Blob Error: $errorMsg")
-                throw IllegalArgumentException(errorMsg)
+                throw IllegalArgumentException("Invalid data URL format")
             }
-            
             val base64Data = dataUrl.substring(commaIndex + 1)
             val data = android.util.Base64.decode(base64Data, android.util.Base64.DEFAULT)
             
-            // Save to app's specific downloads directory for consistency
-            val downloadsDir = File(android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS), "cfawb")
+            val downloadsDir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "cfawb")
             if (!downloadsDir.exists()) {
                 downloadsDir.mkdirs()
             }
-            val file = java.io.File(downloadsDir, filename)
+            val file = File(downloadsDir, filename)
             
-            val fos = java.io.FileOutputStream(file)
+            val fos = FileOutputStream(file)
             fos.write(data)
             fos.close()
             
-            val successMessage = "Blob file saved successfully: ${file.absolutePath}"
-            Log.d("BrowserActivity", successMessage)
-            copyToClipboard(successMessage)
-            
-            // Notify media scanner
             android.media.MediaScannerConnection.scanFile(
                 this,
                 arrayOf(file.absolutePath),
@@ -112,27 +92,23 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 null
             )
             
-            // Also add to DownloadManager for better integration with system downloads
             val downloadManager = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
             val downloadUri = Uri.fromFile(file)
             val request = DownloadManager.Request(downloadUri).apply {
                 setTitle(filename)
-                setDescription("Downloaded from browser (blob)")
+                setDescription("Downloaded from browser")
                 setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
                 setDestinationUri(Uri.fromFile(file))
             }
             downloadManager.enqueue(request)
             
             runOnUiThread {
-                Toast.makeText(this, "Blob文件已下载: $filename\n日志已复制到剪贴板", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "文件已下载: $filename", Toast.LENGTH_LONG).show()
             }
         } catch (e: Exception) {
             e.printStackTrace()
-            val errorMessage = "Blob下载失败: ${e.message ?: "Unknown error"}"
-            Log.e("BrowserActivity", errorMessage, e)
-            copyToClipboard(errorMessage)
             runOnUiThread {
-                Toast.makeText(this, "$errorMessage\n错误日志已复制到剪贴板", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "下载失败: ${e.message}", Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -291,28 +267,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             }
         }
 
-        // Use downloadMenuButton instead of downloadButton which doesn't exist
-        design.downloadMenuButton.setOnClickListener {
-            Log.d("BrowserActivity", "Download button clicked")
-            try {
-                // Open download management activity
-                val intent = Intent(this, DownloadManagerActivity::class.java)
-                startActivity(intent)
-            } catch (e: Exception) {
-                Log.e("BrowserActivity", "Error in download menu button click", e)
-            }
-        }
-
-        design.historyMenuButton.setOnClickListener {
-            Log.d("BrowserActivity", "History button clicked")
-            try {
-                // Open history management activity
-                val intent = Intent(this, HistoryManagerActivity::class.java)
-                startActivity(intent)
-            } catch (e: Exception) {
-                Log.e("BrowserActivity", "Error in history menu button click", e)
-            }
-        }
+        
 
         // Use PopupMenu instead of PopupWindow to avoid view parent issues
         design.menuButton.setOnClickListener {
@@ -322,18 +277,6 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 popup.menu.add("关闭").setOnMenuItemClickListener { 
                     finish()
                     true
-                }
-                popup.menu.add("历史").setOnMenuItemClickListener { 
-                    Log.d("BrowserActivity", "Menu History button clicked")
-                    val intent = Intent(this@BrowserActivity, HistoryManagerActivity::class.java)
-                    startActivity(intent)
-                    true 
-                }
-                popup.menu.add("下载").setOnMenuItemClickListener { 
-                    Log.d("BrowserActivity", "Menu Download button clicked")
-                    val intent = Intent(this@BrowserActivity, DownloadManagerActivity::class.java)
-                    startActivity(intent)
-                    true 
                 }
                 popup.menu.add("返回代理页面").setOnMenuItemClickListener { 
                     try {
@@ -611,9 +554,6 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             swipeRefreshLayout?.isEnabled = canScrollUp
         }
         
-        // Add JavaScript interface for handling blob downloads
-        webView.addJavascriptInterface(BlobDownloadInterface(), "AndroidInterface")
-
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                 val url = request?.url?.toString()
@@ -713,11 +653,14 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             }
         }
         
+        // Add JavaScript interface for handling blob downloads
+        webView.addJavascriptInterface(BlobDownloadInterface(), "AndroidInterface")
+
+        // Download listener - handle blob URLs and normal downloads
         webView.setDownloadListener { url, userAgent, contentDisposition, mimeType, contentLength ->
             if (url.startsWith("blob:")) {
                 val js = """
                     (function() {
-                        console.log('Processing blob download: $url');
                         var xhr = new XMLHttpRequest();
                         xhr.open('GET', '$url', true);
                         xhr.responseType = 'blob';
@@ -727,29 +670,16 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                                 var reader = new FileReader();
                                 reader.onloadend = function() {
                                     if (reader.result) {
-                                        console.log('Blob converted to data URL successfully');
                                         AndroidInterface.onBlobDataReady(reader.result, '$contentDisposition', '$mimeType');
-                                    } else {
-                                        console.error('Failed to convert blob to data URL');
                                     }
                                 };
-                                reader.onerror = function() {
-                                    console.error('Error reading blob data');
-                                };
                                 reader.readAsDataURL(blob);
-                            } else {
-                                console.error('Failed to fetch blob: ' + xhr.status);
                             }
-                        };
-                        xhr.onerror = function() {
-                            console.error('Network error while fetching blob');
                         };
                         xhr.send();
                     })();
                 """.trimIndent()
-                webView.evaluateJavascript(js) { result ->
-                    Log.d("BrowserActivity", "JavaScript execution result: $result")
-                }
+                webView.evaluateJavascript(js, null)
             } else {
                 downloadFileViaApp(url, userAgent, contentDisposition, mimeType)
             }
@@ -1091,25 +1021,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             if (filename.isEmpty()) {
                 filename = "downloaded_file"
             }
-            val downloadDir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "cfawb")
-            if (!downloadDir.exists()) {
-                downloadDir.mkdirs()
-            }
             val downloadManager = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-            downloadOriginalFile(downloadManager, url, userAgent, filename, downloadDir, mimeType)
-            val proxyUrl = "https://g.david525.cloudns.ch/p?u=$url"
-            val proxyFilename = "d_$filename"
-            downloadProxyFile(downloadManager, proxyUrl, userAgent, proxyFilename, downloadDir, mimeType)
-        } catch (e: Exception) {
-            e.printStackTrace()
-            val errorMessage = "下载出错: ${e.message ?: "Unknown error"}"
-            Log.e("BrowserActivity", "Download exception", e)
-            Toast.makeText(this@BrowserActivity, errorMessage, Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    private fun downloadOriginalFile(downloadManager: DownloadManager, url: String, userAgent: String, filename: String, downloadDir: File, mimeType: String) {
-        try {
             val request = DownloadManager.Request(Uri.parse(url)).apply {
                 setTitle(filename)
                 setDescription("Downloading from browser")
@@ -1119,33 +1031,12 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 setAllowedNetworkTypes(DownloadManager.Request.NETWORK_WIFI or DownloadManager.Request.NETWORK_MOBILE)
             }
             downloadManager.enqueue(request)
-            Toast.makeText(this@BrowserActivity, "开始下载原始文件: $filename", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this@BrowserActivity, "开始下载: $filename", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
-            Log.e("BrowserActivity", "Error downloading original file", e)
-            Toast.makeText(this@BrowserActivity, "原始文件下载失败: ${e.message}", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    private fun downloadProxyFile(downloadManager: DownloadManager, proxyUrl: String, userAgent: String, filename: String, downloadDir: File, mimeType: String) {
-        try {
-            Log.d("BrowserActivity", "代理下载URL: $proxyUrl")
-            val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            val clip = ClipData.newPlainText("代理下载URL", proxyUrl)
-            clipboard.setPrimaryClip(clip)
-            Toast.makeText(this@BrowserActivity, "代理URL已复制到剪贴板:\n$proxyUrl", Toast.LENGTH_LONG).show()
-            val request = DownloadManager.Request(Uri.parse(proxyUrl)).apply {
-                setTitle(filename)
-                setDescription("Downloading proxy version: $proxyUrl")
-                setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                addRequestHeader("User-Agent", userAgent)
-                setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "cfawb/$filename")
-                setAllowedNetworkTypes(DownloadManager.Request.NETWORK_WIFI or DownloadManager.Request.NETWORK_MOBILE)
-            }
-            downloadManager.enqueue(request)
-            Toast.makeText(this@BrowserActivity, "开始下载代理文件: $filename\nURL: $proxyUrl", Toast.LENGTH_LONG).show()
-        } catch (e: Exception) {
-            Log.e("BrowserActivity", "Error downloading proxy file", e)
-            Toast.makeText(this@BrowserActivity, "代理文件下载失败: ${e.message}\nURL: $proxyUrl", Toast.LENGTH_LONG).show()
+            e.printStackTrace()
+            val errorMessage = "下载出错: ${e.message ?: "Unknown error"}"
+            Log.e("BrowserActivity", "Download exception", e)
+            Toast.makeText(this@BrowserActivity, errorMessage, Toast.LENGTH_SHORT).show()
         }
     }
 }
