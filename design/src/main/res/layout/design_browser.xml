@@ -24,6 +24,14 @@
                 android:layout_height="36dp"
                 android:background="@color/color_clash_dark" />
 
+            <!-- Tabs Bar -->
+            <LinearLayout
+                android:id="@+id/tabsContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:background="@color/color_clash_dark"
+                android:padding="4dp" />
 
             <!-- WebView Container -->
             <FrameLayout

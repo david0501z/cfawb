@@ -460,6 +460,9 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             val tab = BrowserTab(webView, tabView, tabContainer, url = url)
             tabs.add(tab)
 
+            // Add tab container to the tabs bar
+            design.tabsContainer.addView(tabContainer)
+
             // Switch to the newly created tab (which will add the WebView to the container)
             switchToTab(design, tabs.size - 1)
 
@@ -563,6 +566,9 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
 
             // 从正确的容器中移除 WebView
             swipeRefreshLayout?.removeView(tabToClose.webView)
+
+            // Remove tab container from tabs bar
+            tabToClose.tabContainer?.let { design.tabsContainer.removeView(it) }
 
             // Remove tab from tabs list
             tabs.removeAt(index)
