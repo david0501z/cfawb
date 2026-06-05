@@ -33,6 +33,7 @@ import com.github.kr328.clash.design.BrowserDesign
 import kotlinx.coroutines.isActive
 import java.io.File
 import android.view.ViewTreeObserver
+import java.io.FileOutputStream
 
 class BrowserActivity : BaseActivity<BrowserDesign>() {
     companion object {
