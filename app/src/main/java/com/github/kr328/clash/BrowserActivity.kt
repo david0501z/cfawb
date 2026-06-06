@@ -43,8 +43,6 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
     
     private data class BrowserTab(
         val webView: WebView,
-        val tabView: View,
-        val tabContainer: View? = null,
         var title: String = "New Tab",
         var url: String = ""
     )
@@ -371,64 +369,11 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             val webView = WebView(this)
             setupWebView(webView, design)
 
-            // Create a container for the tab with close button
-            val tabContainer = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                setBackgroundResource(android.R.drawable.btn_default_small)
-            }
-
-            val tabView = TextView(this).apply {
-                text = "New Tab"
-                setPadding(16, 8, 16, 8)
-                gravity = Gravity.CENTER
-                layoutParams = LinearLayout.LayoutParams(
-                    0,
-                    LinearLayout.LayoutParams.WRAP_CONTENT,
-                    1.0f
-                )
-            }
-
-            val closeTabButton = ImageButton(this).apply {
-                setImageResource(android.R.drawable.ic_menu_close_clear_cancel)
-                setBackgroundResource(android.R.drawable.btn_default_small)
-                setPadding(8, 8, 8, 8)
-                layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.WRAP_CONTENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
-                )
-            }
-
-            tabContainer.addView(tabView)
-            tabContainer.addView(closeTabButton)
-
-            val tab = BrowserTab(webView, tabView, tabContainer, url = url)
+            val tab = BrowserTab(webView, url = url)
             tabs.add(tab)
-
-            // Add tab container to the tabs bar
-            design.tabsContainer.addView(tabContainer)
 
             // Switch to the newly created tab (which will add the WebView to the container)
             switchToTab(design, tabs.size - 1)
-
-            // Set click listener for tab switching
-            val tabIndex = tabs.size - 1
-            tabView.setOnClickListener {
-                try {
-                    switchToTab(design, tabIndex)
-                } catch (e: Exception) {
-                    Log.e("BrowserActivity", "Error switching tab", e)
-                }
-            }
-
-            // Set click listener for tab closing
-            val closeTabIndex = tabIndex
-            closeTabButton.setOnClickListener {
-                try {
-                    closeTab(design, closeTabIndex)
-                } catch (e: Exception) {
-                    Log.e("BrowserActivity", "Error closing tab", e)
-                }
-            }
 
             // Load URL
             webView.loadUrl(url)
@@ -445,7 +390,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             // Create a fallback tab with error message
             val webView = WebView(this)
             webView.loadData("<html><body><h1>Failed to create tab</h1><p>Error: ${e.message}</p></body></html>", "text/html", "UTF-8")
-            val tab = BrowserTab(webView, TextView(this).apply { text = "Error Tab" }, null, url = url)
+            val tab = BrowserTab(webView, url = url)
             tabs.add(tab)
             switchToTab(design, tabs.size - 1)
             updateTabsCount(design)
@@ -490,11 +435,6 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 newTab.url = currentUrl
             }
 
-            // Update tab view appearance to show active tab
-            for (i in tabs.indices) {
-                tabs[i].tabView.isSelected = (i == currentTabIndex)
-            }
-
             // 更新前进后退按钮状态
             updateNavigationButtons(design)
         } catch (e: Exception) {
@@ -510,9 +450,6 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
 
             // 从正确的容器中移除 WebView
             swipeRefreshLayout?.removeView(tabToClose.webView)
-
-            // Remove tab container from tabs bar
-            tabToClose.tabContainer?.let { design.tabsContainer.removeView(it) }
 
             // Remove tab from tabs list
             tabs.removeAt(index)
@@ -581,7 +518,6 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 val currentIndex = tabs.indexOfFirst { it.webView == view }
                 if (currentIndex >= 0) {
                     val title = url?.let { extractDomain(it) } ?: "Loading..."
-                    (tabs[currentIndex].tabView as TextView).text = title
                     tabs[currentIndex].title = title
                     tabs[currentIndex].url = url ?: ""
 
@@ -600,7 +536,6 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 val currentIndex = tabs.indexOfFirst { it.webView == view }
                 if (currentIndex >= 0) {
                     val title = view?.title?.takeIf { it.isNotEmpty() } ?: url?.let { extractDomain(it) } ?: "New Tab"
-                    (tabs[currentIndex].tabView as TextView).text = title
                     tabs[currentIndex].title = title
                     tabs[currentIndex].url = url ?: ""
 
