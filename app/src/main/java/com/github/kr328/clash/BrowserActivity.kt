@@ -198,6 +198,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
     private var currentTabIndex = 0
     private var isLoading = false
     private var swipeRefreshLayout: SwipeRefreshLayout? = null
+    private var webViewParent: FrameLayout? = null
 
     override suspend fun main() {
         val design = BrowserDesign(this)
@@ -405,9 +406,10 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             val previousTab = tabs.getOrNull(currentTabIndex)
             val newTab = tabs[index]
 
-            val container = swipeRefreshLayout
+            // Use webViewParent (inside SwipeRefreshLayout) as the actual WebView container
+            val container = webViewParent
             if (container == null) {
-                Log.e("BrowserActivity", "SwipeRefreshLayout is null, cannot switch tab")
+                Log.e("BrowserActivity", "webViewParent is null, cannot switch tab")
                 return
             }
 
@@ -418,9 +420,17 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
 
             // Add new WebView if not already attached, or reattach if attached elsewhere
             if (newTab.webView.parent == null) {
+                newTab.webView.layoutParams = ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT
+                )
                 container.addView(newTab.webView)
             } else if (newTab.webView.parent != container) {
                 (newTab.webView.parent as? ViewGroup)?.removeView(newTab.webView)
+                newTab.webView.layoutParams = ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT
+                )
                 container.addView(newTab.webView)
             }
 
@@ -449,7 +459,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             val tabToClose = tabs[index]
 
             // 从正确的容器中移除 WebView
-            swipeRefreshLayout?.removeView(tabToClose.webView)
+            webViewParent?.removeView(tabToClose.webView)
 
             // Remove tab from tabs list
             tabs.removeAt(index)
@@ -744,7 +754,18 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             )
             isEnabled = false
         }
-        
+
+        // 创建一个 FrameLayout 作为 SwipeRefreshLayout 的唯一子 View
+        // WebView 将添加到这个 FrameLayout 中，而不是直接添加到 SwipeRefreshLayout
+        // 这样可以避免 SwipeRefreshLayout 只支持一个子 View 的限制
+        webViewParent = FrameLayout(this).apply {
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        }
+        swipeRefreshLayout!!.addView(webViewParent)
+
         // 将现有的 webViewContainer 中的子视图转移到 SwipeRefreshLayout 中
         val currentChildren = mutableListOf<View>()
         for (i in 0 until design.webViewContainer.childCount) {
@@ -753,7 +774,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
         design.webViewContainer.removeAllViews()
         design.webViewContainer.addView(swipeRefreshLayout)
         currentChildren.forEach { child ->
-            swipeRefreshLayout?.addView(child)
+            webViewParent?.addView(child)
         }
     }
 
