@@ -44,7 +44,8 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
     private data class BrowserTab(
         val webView: WebView,
         var title: String = "New Tab",
-        var url: String = ""
+        var url: String = "",
+        var scrollListener: ViewTreeObserver.OnScrollChangedListener? = null
     )
     
     // JavaScript interface to handle blob downloads (local blob URLs from JavaScript)
@@ -200,8 +201,11 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
     private var swipeRefreshLayout: SwipeRefreshLayout? = null
     private var webViewParent: FrameLayout? = null
 
+    private var designRef: BrowserDesign? = null
+
     override suspend fun main() {
         val design = BrowserDesign(this)
+        designRef = design
 
         setContentDesign(design)
 
@@ -461,6 +465,17 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             // 从正确的容器中移除 WebView
             webViewParent?.removeView(tabToClose.webView)
 
+            // 移除滚动监听器防止内存泄漏
+            val listener = tabToClose.webView.getTag() as? ViewTreeObserver.OnScrollChangedListener
+            if (listener != null) {
+                tabToClose.webView.viewTreeObserver.removeOnScrollChangedListener(listener)
+            }
+
+            // 正确销毁 WebView 释放 native 资源
+            tabToClose.webView.stopLoading()
+            tabToClose.webView.removeAllViews()
+            tabToClose.webView.destroy()
+
             // Remove tab from tabs list
             tabs.removeAt(index)
 
@@ -497,25 +512,34 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
         }
 
         // 设置WebView的滚动监听，用于控制下拉刷新
-        webView.viewTreeObserver.addOnScrollChangedListener {
+        val scrollListener = ViewTreeObserver.OnScrollChangedListener {
             val canScrollUp = webView.canScrollVertically(-1)
-            swipeRefreshLayout?.isEnabled = canScrollUp
+            swipeRefreshLayout?.isEnabled = !canScrollUp
         }
+        webView.viewTreeObserver.addOnScrollChangedListener(scrollListener)
+        webView.setTag(scrollListener)
         
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                 val url = request?.url?.toString()
                 Log.d("BrowserActivity", "shouldOverrideUrlLoading: $url")
                 
-                if (url != null && url.startsWith("baiduboxapp://")) {
-                    Log.d("BrowserActivity", "Intercepted baiduboxapp URL: $url")
+                if (url != null && (url.startsWith("baiduboxapp://") || url.startsWith("weixin://") ||
+                        url.startsWith("alipay://") || url.startsWith("taobao://") ||
+                        url.startsWith("mqq://") || url.startsWith("zhihu://") ||
+                        url.startsWith("douyin://") || url.startsWith("tiktok://") ||
+                        url.startsWith("tg://") || url.startsWith("intent://"))) {
+                    Log.d("BrowserActivity", "Intercepted external protocol URL: $url")
                     try {
                         showProtocolHandlerDialog(url, view)
                         return true
                     } catch (e: Exception) {
-                        Log.e("BrowserActivity", "Error processing baiduboxapp URL", e)
+                        Log.e("BrowserActivity", "Error processing external protocol URL", e)
                         return true
                     }
+                } else if (url != null && (url.startsWith("tel:") || url.startsWith("mailto:") || url.startsWith("market://"))) {
+                    tryOpenExternalApp(url)
+                    return true
                 }
                 return false
             }
@@ -547,7 +571,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 if (currentIndex >= 0) {
                     val title = view?.title?.takeIf { it.isNotEmpty() } ?: url?.let { extractDomain(it) } ?: "New Tab"
                     tabs[currentIndex].title = title
-                    tabs[currentIndex].url = url ?: ""
+                    tabs[currentIndex].url = url ?: tabs[currentIndex].url
 
                     if (currentIndex == currentTabIndex) {
                         design.urlInput.setText(url)
@@ -733,6 +757,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
     private fun updateTabsCount(design: BrowserDesign) {
         val tabCount = tabs.size
         design.tabsCountButton.contentDescription = "打开的页签数量: $tabCount"
+        design.tabsCountButton.text = tabCount.toString()
     }
 
     private fun setupSwipeRefreshLayout(design: BrowserDesign) {
@@ -894,12 +919,12 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
     
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
-        val currentTab = tabs.getOrNull(currentTabIndex)
         val newUrl = intent?.getStringExtra("url")
-        if (currentTab != null && !newUrl.isNullOrBlank()) {
-            currentTab.webView.loadUrl(newUrl)
-        } else if (currentTab != null) {
-            currentTab.webView.requestFocus()
+        // 从外部 intent 接收 URL 时创建新标签，不覆盖当前标签
+        if (!newUrl.isNullOrBlank()) {
+            designRef?.let { createNewTab(it, newUrl) }
+        } else {
+            tabs.getOrNull(currentTabIndex)?.webView?.requestFocus()
         }
     }
     
