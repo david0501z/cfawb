@@ -753,7 +753,6 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
     private fun updateTabsCount(design: BrowserDesign) {
         val tabCount = tabs.size
         design.tabsCountButton.contentDescription = "打开的页签数量: $tabCount"
-        design.tabsCountButton.text = tabCount.toString()
     }
 
     private fun setupSwipeRefreshLayout(design: BrowserDesign) {
