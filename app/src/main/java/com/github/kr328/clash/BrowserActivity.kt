@@ -42,11 +42,10 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
     }
     
     private data class BrowserTab(
-        val webView: WebView,
-        var title: String = "New Tab",
-        var url: String = "",
-        var scrollListener: ViewTreeObserver.OnScrollChangedListener? = null
-    )
+            val webView: WebView,
+            var title: String = "新标签页",
+            var url: String = ""
+        )
     
     // JavaScript interface to handle blob downloads (local blob URLs from JavaScript)
     inner class BlobDownloadInterface {
@@ -96,7 +95,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             val downloadUri = Uri.fromFile(file)
             val request = DownloadManager.Request(downloadUri).apply {
                 setTitle(filename)
-                setDescription("Downloaded from browser")
+                setDescription("浏览器下载完成")
                 setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
                 setDestinationUri(Uri.fromFile(file))
             }
@@ -465,11 +464,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             // 从正确的容器中移除 WebView
             webViewParent?.removeView(tabToClose.webView)
 
-            // 移除滚动监听器防止内存泄漏
-            val listener = tabToClose.webView.getTag() as? ViewTreeObserver.OnScrollChangedListener
-            if (listener != null) {
-                tabToClose.webView.viewTreeObserver.removeOnScrollChangedListener(listener)
-            }
+            // 移除滚动监听器防止内存泄漏（OnScrollChangeListener 会在 WebView.destroy 时自动清理）
 
             // 正确销毁 WebView 释放 native 资源
             tabToClose.webView.stopLoading()
@@ -512,11 +507,12 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
         }
 
         // 设置WebView的滚动监听，用于控制下拉刷新
-        val scrollListener = ViewTreeObserver.OnScrollChangedListener {
+        // 使用 OnScrollChangeListener（API 23+），确保 WebView 内部滚动正确触发
+        val scrollListener = View.OnScrollChangeListener { _, _, _, _, _ ->
             val canScrollUp = webView.canScrollVertically(-1)
             swipeRefreshLayout?.isEnabled = !canScrollUp
         }
-        webView.viewTreeObserver.addOnScrollChangedListener(scrollListener)
+        webView.setOnScrollChangeListener(scrollListener)
         webView.setTag(scrollListener)
         
         webView.webViewClient = object : WebViewClient() {
@@ -551,7 +547,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
 
                 val currentIndex = tabs.indexOfFirst { it.webView == view }
                 if (currentIndex >= 0) {
-                    val title = url?.let { extractDomain(it) } ?: "Loading..."
+                    val title = url?.let { extractDomain(it) } ?: "加载中..."
                     tabs[currentIndex].title = title
                     tabs[currentIndex].url = url ?: ""
 
@@ -569,7 +565,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
 
                 val currentIndex = tabs.indexOfFirst { it.webView == view }
                 if (currentIndex >= 0) {
-                    val title = view?.title?.takeIf { it.isNotEmpty() } ?: url?.let { extractDomain(it) } ?: "New Tab"
+                    val title = view?.title?.takeIf { it.isNotEmpty() } ?: url?.let { extractDomain(it) } ?: "新标签页"
                     tabs[currentIndex].title = title
                     tabs[currentIndex].url = url ?: tabs[currentIndex].url
 
@@ -1006,7 +1002,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             val downloadManager = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
             val request = DownloadManager.Request(Uri.parse(url)).apply {
                 setTitle(filename)
-                setDescription("Downloading from browser")
+                setDescription("浏览器下载中")
                 setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
                 addRequestHeader("User-Agent", userAgent)
                 setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "cfawb/$filename")

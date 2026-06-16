@@ -257,4 +257,18 @@
     <string name="external_control_activity">外部控制</string>
     <string name="external_control_started">Clash.Meta 服务已启动</string>
     <string name="external_control_stopped">Clash.Meta 服务已停止</string>
+
+    <!-- 浏览器相关 -->
+    <string name="back">返回</string>
+    <string name="forward">前进</string>
+    <string name="reload">刷新</string>
+    <string name="enter_url">输入网址</string>
+    <string name="browser">浏览器</string>
+    <string name="new_tab">新建标签页</string>
+    <string name="add_tab">新建标签</string>
+    <string name="tabs_count">标签页数</string>
+    <string name="download">下载</string>
+    <string name="download_manager">下载管理</string>
+    <string name="history">历史记录</string>
+    <string name="menu">菜单</string>
 </resources>
