@@ -22,8 +22,6 @@ import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.webkit.*
 import android.widget.*
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import androidx.webkit.ProxyConfig
@@ -38,7 +36,6 @@ import java.io.FileOutputStream
 class BrowserActivity : BaseActivity<BrowserDesign>() {
     companion object {
         private const val REQUEST_CODE_FILE_CHOOSER = 1001
-        private const val REQUEST_CODE_STORAGE_PERMISSIONS = 1002
     }
     
     private data class BrowserTab(
@@ -212,9 +209,6 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
 
         // 初始化下拉刷新布局
         setupSwipeRefreshLayout(design)
-
-        // 请求文件存储权限
-        requestStoragePermissions()
 
         // Create first tab - check if we have a URL from the intent
         val initialUrl = intent.getStringExtra("url") ?: "https://www.google.com"
@@ -606,10 +600,33 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 fileChooserParams: FileChooserParams
             ): Boolean {
                 this@BrowserActivity.filePathCallback = filePathCallback
-                val intent = fileChooserParams.createIntent()
-                intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+
+                // 使用 Storage Access Framework (SAF) 替代旧存储权限模式
+                // SAF 让用户通过系统文件选择器选择文件，
+                // 仅对所选文件授予临时读取权限，无需申请存储权限
+                val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
+                    // 根据 WebView 请求的 MIME 类型设置过滤
+                    val acceptTypes = fileChooserParams.acceptTypes
+                    if (!acceptTypes.isNullOrEmpty()) {
+                        if (acceptTypes.size == 1) {
+                            type = acceptTypes[0]
+                        } else {
+                            type = acceptTypes[0]
+                            putExtra(Intent.EXTRA_MIME_TYPES, acceptTypes)
+                        }
+                    } else {
+                        type = "*/*"
+                    }
+
+                    putExtra(Intent.EXTRA_ALLOW_MULTIPLE,
+                        fileChooserParams.mode == FileChooserParams.MODE_OPEN_MULTIPLE)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+
                 try {
-                    startActivityForResult(intent, REQUEST_CODE_FILE_CHOOSER)
+                    startActivityForResult(
+                        Intent.createChooser(intent, "选择要上传的文件"),
+                        REQUEST_CODE_FILE_CHOOSER)
                 } catch (e: Exception) {
                     this@BrowserActivity.filePathCallback = null
                     filePathCallback.onReceiveValue(null)
@@ -930,35 +947,6 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
     }
 
     private var filePathCallback: ValueCallback<Array<Uri>?>? = null
-
-    private fun requestStoragePermissions() {
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
-            val permissions = arrayOf(
-                android.Manifest.permission.READ_EXTERNAL_STORAGE,
-                android.Manifest.permission.WRITE_EXTERNAL_STORAGE
-            )
-            val permissionsToRequest = permissions.filter { 
-                ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
-            }.toTypedArray()
-            if (permissionsToRequest.isNotEmpty()) {
-                ActivityCompat.requestPermissions(this, permissionsToRequest, REQUEST_CODE_STORAGE_PERMISSIONS)
-            }
-        }
-    }
-
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        when (requestCode) {
-            REQUEST_CODE_STORAGE_PERMISSIONS -> {
-                if (grantResults.isNotEmpty() && grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
-                    Log.d("BrowserActivity", "存储权限已授予")
-                } else {
-                    Log.w("BrowserActivity", "存储权限被拒绝")
-                    Toast.makeText(this, "文件上传和下载功能可能需要存储权限才能正常工作", Toast.LENGTH_LONG).show()
-                }
-            }
-        }
-    }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
