@@ -22,8 +22,6 @@ import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.webkit.*
 import android.widget.*
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import androidx.webkit.ProxyConfig
@@ -38,14 +36,13 @@ import java.io.FileOutputStream
 class BrowserActivity : BaseActivity<BrowserDesign>() {
     companion object {
         private const val REQUEST_CODE_FILE_CHOOSER = 1001
-        private const val REQUEST_CODE_STORAGE_PERMISSIONS = 1002
     }
     
     private data class BrowserTab(
-        val webView: WebView,
-        var title: String = "New Tab",
-        var url: String = ""
-    )
+            val webView: WebView,
+            var title: String = "新标签页",
+            var url: String = ""
+        )
     
     // JavaScript interface to handle blob downloads (local blob URLs from JavaScript)
     inner class BlobDownloadInterface {
@@ -95,7 +92,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             val downloadUri = Uri.fromFile(file)
             val request = DownloadManager.Request(downloadUri).apply {
                 setTitle(filename)
-                setDescription("Downloaded from browser")
+                setDescription("浏览器下载完成")
                 setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
                 setDestinationUri(Uri.fromFile(file))
             }
@@ -200,8 +197,11 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
     private var swipeRefreshLayout: SwipeRefreshLayout? = null
     private var webViewParent: FrameLayout? = null
 
+    private var designRef: BrowserDesign? = null
+
     override suspend fun main() {
         val design = BrowserDesign(this)
+        designRef = design
 
         setContentDesign(design)
 
@@ -209,9 +209,6 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
 
         // 初始化下拉刷新布局
         setupSwipeRefreshLayout(design)
-
-        // 请求文件存储权限
-        requestStoragePermissions()
 
         // Create first tab - check if we have a URL from the intent
         val initialUrl = intent.getStringExtra("url") ?: "https://www.google.com"
@@ -461,6 +458,13 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             // 从正确的容器中移除 WebView
             webViewParent?.removeView(tabToClose.webView)
 
+            // 移除滚动监听器防止内存泄漏（OnScrollChangeListener 会在 WebView.destroy 时自动清理）
+
+            // 正确销毁 WebView 释放 native 资源
+            tabToClose.webView.stopLoading()
+            tabToClose.webView.removeAllViews()
+            tabToClose.webView.destroy()
+
             // Remove tab from tabs list
             tabs.removeAt(index)
 
@@ -497,25 +501,35 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
         }
 
         // 设置WebView的滚动监听，用于控制下拉刷新
-        webView.viewTreeObserver.addOnScrollChangedListener {
+        // 使用 OnScrollChangeListener（API 23+），确保 WebView 内部滚动正确触发
+        val scrollListener = View.OnScrollChangeListener { _, _, _, _, _ ->
             val canScrollUp = webView.canScrollVertically(-1)
-            swipeRefreshLayout?.isEnabled = canScrollUp
+            swipeRefreshLayout?.isEnabled = !canScrollUp
         }
+        webView.setOnScrollChangeListener(scrollListener)
+        webView.setTag(scrollListener)
         
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                 val url = request?.url?.toString()
                 Log.d("BrowserActivity", "shouldOverrideUrlLoading: $url")
                 
-                if (url != null && url.startsWith("baiduboxapp://")) {
-                    Log.d("BrowserActivity", "Intercepted baiduboxapp URL: $url")
+                if (url != null && (url.startsWith("baiduboxapp://") || url.startsWith("weixin://") ||
+                        url.startsWith("alipay://") || url.startsWith("taobao://") ||
+                        url.startsWith("mqq://") || url.startsWith("zhihu://") ||
+                        url.startsWith("douyin://") || url.startsWith("tiktok://") ||
+                        url.startsWith("tg://") || url.startsWith("intent://"))) {
+                    Log.d("BrowserActivity", "Intercepted external protocol URL: $url")
                     try {
                         showProtocolHandlerDialog(url, view)
                         return true
                     } catch (e: Exception) {
-                        Log.e("BrowserActivity", "Error processing baiduboxapp URL", e)
+                        Log.e("BrowserActivity", "Error processing external protocol URL", e)
                         return true
                     }
+                } else if (url != null && (url.startsWith("tel:") || url.startsWith("mailto:") || url.startsWith("market://"))) {
+                    tryOpenExternalApp(url)
+                    return true
                 }
                 return false
             }
@@ -527,7 +541,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
 
                 val currentIndex = tabs.indexOfFirst { it.webView == view }
                 if (currentIndex >= 0) {
-                    val title = url?.let { extractDomain(it) } ?: "Loading..."
+                    val title = url?.let { extractDomain(it) } ?: "加载中..."
                     tabs[currentIndex].title = title
                     tabs[currentIndex].url = url ?: ""
 
@@ -545,9 +559,9 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
 
                 val currentIndex = tabs.indexOfFirst { it.webView == view }
                 if (currentIndex >= 0) {
-                    val title = view?.title?.takeIf { it.isNotEmpty() } ?: url?.let { extractDomain(it) } ?: "New Tab"
+                    val title = view?.title?.takeIf { it.isNotEmpty() } ?: url?.let { extractDomain(it) } ?: "新标签页"
                     tabs[currentIndex].title = title
-                    tabs[currentIndex].url = url ?: ""
+                    tabs[currentIndex].url = url ?: tabs[currentIndex].url
 
                     if (currentIndex == currentTabIndex) {
                         design.urlInput.setText(url)
@@ -586,23 +600,16 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 fileChooserParams: FileChooserParams
             ): Boolean {
                 this@BrowserActivity.filePathCallback = filePathCallback
+
+                // 使用 WebView 原生的 fileChooserParams.createIntent() 构造 intent
                 val intent = fileChooserParams.createIntent()
-                intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
-                val chooser = Intent.createChooser(intent, null)
-                // Check if any app can handle this intent; fallback to generic GET_CONTENT
-                if (packageManager.resolveActivity(chooser, 0) == null) {
-                    val fallback = Intent(Intent.ACTION_GET_CONTENT).apply {
-                        type = "*/*"
-                        putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
-                        addCategory(Intent.CATEGORY_OPENABLE)
-                    }
-                    if (packageManager.resolveActivity(fallback, 0) != null) {
-                        startActivityForResult(fallback, REQUEST_CODE_FILE_CHOOSER)
-                        return true
-                    }
-                }
+                intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE,
+                    fileChooserParams.mode == FileChooserParams.MODE_OPEN_MULTIPLE)
+
                 try {
-                    startActivityForResult(chooser, REQUEST_CODE_FILE_CHOOSER)
+                    startActivityForResult(
+                        Intent.createChooser(intent, null),
+                        REQUEST_CODE_FILE_CHOOSER)
                 } catch (e: Exception) {
                     this@BrowserActivity.filePathCallback = null
                     filePathCallback.onReceiveValue(null)
@@ -907,12 +914,12 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
     
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
-        val currentTab = tabs.getOrNull(currentTabIndex)
         val newUrl = intent?.getStringExtra("url")
-        if (currentTab != null && !newUrl.isNullOrBlank()) {
-            currentTab.webView.loadUrl(newUrl)
-        } else if (currentTab != null) {
-            currentTab.webView.requestFocus()
+        // 从外部 intent 接收 URL 时创建新标签，不覆盖当前标签
+        if (!newUrl.isNullOrBlank()) {
+            designRef?.let { createNewTab(it, newUrl) }
+        } else {
+            tabs.getOrNull(currentTabIndex)?.webView?.requestFocus()
         }
     }
     
@@ -923,35 +930,6 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
     }
 
     private var filePathCallback: ValueCallback<Array<Uri>?>? = null
-
-    private fun requestStoragePermissions() {
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
-            val permissions = arrayOf(
-                android.Manifest.permission.READ_EXTERNAL_STORAGE,
-                android.Manifest.permission.WRITE_EXTERNAL_STORAGE
-            )
-            val permissionsToRequest = permissions.filter { 
-                ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
-            }.toTypedArray()
-            if (permissionsToRequest.isNotEmpty()) {
-                ActivityCompat.requestPermissions(this, permissionsToRequest, REQUEST_CODE_STORAGE_PERMISSIONS)
-            }
-        }
-    }
-
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        when (requestCode) {
-            REQUEST_CODE_STORAGE_PERMISSIONS -> {
-                if (grantResults.isNotEmpty() && grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
-                    Log.d("BrowserActivity", "存储权限已授予")
-                } else {
-                    Log.w("BrowserActivity", "存储权限被拒绝")
-                    Toast.makeText(this, "文件上传和下载功能可能需要存储权限才能正常工作", Toast.LENGTH_LONG).show()
-                }
-            }
-        }
-    }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
@@ -994,7 +972,7 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
             val downloadManager = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
             val request = DownloadManager.Request(Uri.parse(url)).apply {
                 setTitle(filename)
-                setDescription("Downloading from browser")
+                setDescription("浏览器下载中")
                 setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
                 addRequestHeader("User-Agent", userAgent)
                 setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "cfawb/$filename")
