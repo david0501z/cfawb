@@ -588,8 +588,21 @@ class BrowserActivity : BaseActivity<BrowserDesign>() {
                 this@BrowserActivity.filePathCallback = filePathCallback
                 val intent = fileChooserParams.createIntent()
                 intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+                val chooser = Intent.createChooser(intent, null)
+                // Check if any app can handle this intent; fallback to generic GET_CONTENT
+                if (packageManager.resolveActivity(chooser, 0) == null) {
+                    val fallback = Intent(Intent.ACTION_GET_CONTENT).apply {
+                        type = "*/*"
+                        putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+                        addCategory(Intent.CATEGORY_OPENABLE)
+                    }
+                    if (packageManager.resolveActivity(fallback, 0) != null) {
+                        startActivityForResult(fallback, REQUEST_CODE_FILE_CHOOSER)
+                        return true
+                    }
+                }
                 try {
-                    startActivityForResult(intent, REQUEST_CODE_FILE_CHOOSER)
+                    startActivityForResult(chooser, REQUEST_CODE_FILE_CHOOSER)
                 } catch (e: Exception) {
                     this@BrowserActivity.filePathCallback = null
                     filePathCallback.onReceiveValue(null)
