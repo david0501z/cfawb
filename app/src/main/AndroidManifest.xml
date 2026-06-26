@@ -176,7 +176,7 @@
             android:label="@string/help" />
         <activity
             android:name=".BrowserActivity"
-            android:configChanges="uiMode"
+            android:configChanges="uiMode|orientation|screenSize"
             android:exported="true"
             android:label="@string/browser" />
         <activity
